@@ -8,13 +8,13 @@ export default function ForTherapistsPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-[#176c9c] to-[#8bb6ce] text-white py-16">
+      <section className="bg-gradient-to-br from-[#056DBA] to-[#2F86D2] text-white py-16">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Join LinkTherapy</h1>
           <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-8">
             Connect with clients who need your expertise. Grow your practice with our platform.
           </p>
-          <Button size="lg" className="bg-white text-[#176c9c] hover:bg-gray-100">
+          <Button size="lg" className="bg-white text-[#056DBA] hover:bg-gray-100">
             Get Started Today
           </Button>
         </div>
@@ -33,7 +33,7 @@ export default function ForTherapistsPage() {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             <Card className="text-center">
               <CardHeader>
-                <Users className="h-12 w-12 text-[#176c9c] mx-auto mb-4" />
+                <Users className="h-12 w-12 text-[#056DBA] mx-auto mb-4" />
                 <CardTitle>More Clients</CardTitle>
               </CardHeader>
               <CardContent>
@@ -43,7 +43,7 @@ export default function ForTherapistsPage() {
 
             <Card className="text-center">
               <CardHeader>
-                <TrendingUp className="h-12 w-12 text-[#176c9c] mx-auto mb-4" />
+                <TrendingUp className="h-12 w-12 text-[#056DBA] mx-auto mb-4" />
                 <CardTitle>Grow Your Practice</CardTitle>
               </CardHeader>
               <CardContent>
@@ -53,7 +53,7 @@ export default function ForTherapistsPage() {
 
             <Card className="text-center">
               <CardHeader>
-                <Shield className="h-12 w-12 text-[#176c9c] mx-auto mb-4" />
+                <Shield className="h-12 w-12 text-[#056DBA] mx-auto mb-4" />
                 <CardTitle>Verified Platform</CardTitle>
               </CardHeader>
               <CardContent>
@@ -63,7 +63,7 @@ export default function ForTherapistsPage() {
 
             <Card className="text-center">
               <CardHeader>
-                <Clock className="h-12 w-12 text-[#176c9c] mx-auto mb-4" />
+                <Clock className="h-12 w-12 text-[#056DBA] mx-auto mb-4" />
                 <CardTitle>Flexible Schedule</CardTitle>
               </CardHeader>
               <CardContent>
@@ -134,7 +134,7 @@ export default function ForTherapistsPage() {
                   />
                 </div>
 
-                <Button className="w-full bg-[#176c9c] hover:bg-[#145a7d]" size="lg">
+                <Button className="w-full bg-[#056DBA] hover:bg-[#045A99]" size="lg">
                   Submit Application
                 </Button>
               </form>

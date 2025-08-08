@@ -26,7 +26,7 @@ export function Footer() {
   return (
     <footer
       id="footer"
-      className="bg-gradient-to-br from-gray-900 via-[#176c9c] to-gray-900 text-white py-16 relative overflow-hidden"
+      className="bg-gradient-to-br from-gray-900 via-[#056DBA] to-gray-900 text-white py-16 relative overflow-hidden"
     >
       {/* Animated background elements */}
       <div className="absolute inset-0">
@@ -60,17 +60,12 @@ export function Footer() {
               health matters, and we're here to help you find the right support.
             </p>
             <div className="space-y-3 text-sm text-blue-100">
-              <div className="flex items-center gap-3 group hover:text-white transition-colors">
-                <div className="p-2 bg-white/10 rounded-full group-hover:bg-white/20 transition-colors">
-                  <Mail className="h-4 w-4" />
-                </div>
-                <span>hello@linktherapy.com</span>
-              </div>
+              
               <div className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-full group-hover:bg-white/20 transition-colors">
                   <Phone className="h-4 w-4" />
                 </div>
-                <span>(555) 123-4567</span>
+                <span>+961 79 107 042</span>
               </div>
               <div className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-full group-hover:bg-white/20 transition-colors">
@@ -179,7 +174,7 @@ export function Footer() {
               </div>
             </div>
             <div className="text-center text-blue-100">
-              <p>&copy; 2024 LinkTherapy. All rights reserved.</p>
+              <p>&copy; 2025 LinkTherapy. All rights reserved.</p>
               <p className="text-sm mt-1">Made with ❤️ for mental health</p>
             </div>
           </div>

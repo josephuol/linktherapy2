@@ -1,12 +1,14 @@
 import { HeroSection } from "@/components/hero-section"
-import { TherapistDirectory } from "@/components/therapist-directory"
+import TherapistDirectoryLoader from "@/components/therapist-directory-loader"
 import { WhatsAppButton } from "@/components/whatsapp-button"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       <HeroSection />
-      <TherapistDirectory />
+      {/* Server-side prefetch for faster first paint */}
+      {/* eslint-disable-next-line @next/next/no-async-client-component */}
+      <TherapistDirectoryLoader />
       <WhatsAppButton />
     </div>
   )

@@ -43,7 +43,6 @@ export function WhatsAppButton() {
               <X className="h-4 w-4" />
             </button>
             <div className="pr-6">
-              <p className="text-sm font-semibold text-gray-900 mb-1">Need help?</p>
               <p className="text-xs text-gray-600">Chat with us on WhatsApp for instant support!</p>
             </div>
             <div className="absolute bottom-0 right-6 transform translate-y-1/2 rotate-45 w-2 h-2 bg-white border-r border-b border-gray-200"></div>

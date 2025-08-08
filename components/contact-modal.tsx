@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { supabaseBrowser } from "@/lib/supabase-browser"
 
 interface Therapist {
   id: number
@@ -63,8 +64,34 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Persist to Supabase via API route (works for anon users)
+    try {
+      if (!therapist?.id) {
+        alert("Missing therapist reference. Please try again.")
+        setIsSubmitting(false)
+        return
+      }
+      const res = await fetch("/api/contact-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          therapist_id: therapist?.id,
+          client_name: `${formData.firstName} ${formData.lastName}`.trim(),
+          client_email: formData.email,
+          client_phone: formData.phone,
+          message: formData.reason,
+        }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        throw new Error(j?.error || "Failed to submit. Please try again.")
+      }
+    } catch (err) {
+      console.error(err)
+      alert((err as Error).message)
+      setIsSubmitting(false)
+      return
+    }
 
     // Track the contact attempt
     const contactData = {
@@ -97,16 +124,16 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto border-0 shadow-2xl bg-white">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#176c9c] to-[#8bb6ce]" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-[#056DBA]" />
 
         <DialogHeader className="relative">
-          <DialogTitle className="text-3xl font-bold text-[#176c9c] pr-12">Connect with {therapist.name}</DialogTitle>
+          <DialogTitle className="text-3xl font-bold text-[#056DBA] pr-12">Connect with {therapist.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-8">
           {/* Enhanced Therapist Info */}
           <div className={`transition-all duration-700 ${isVisible ? "animate-slide-up" : "opacity-0"}`}>
-            <div className="flex gap-6 p-6 bg-gradient-to-r from-[#176c9c]/8 to-[#8bb6ce]/8 rounded-2xl border border-[#176c9c]/15">
+            <div className="flex gap-6 p-6 bg-[#056DBA]/5 rounded-2xl border border-[#056DBA]/15">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-white shadow-lg">
                   <img
@@ -134,14 +161,14 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                       <span className="font-bold text-gray-900">{therapist.rating}</span>
                       <span className="text-gray-500">({therapist.reviews})</span>
                     </div>
-                    <div className="text-2xl font-bold text-[#176c9c]">${therapist.price}/session</div>
+                    <div className="text-2xl font-bold text-[#056DBA]">${therapist.price}/session</div>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <Badge className="bg-[#176c9c]/10 text-[#176c9c] hover:bg-[#176c9c]/20">{therapist.specialty}</Badge>
+                  <Badge className="bg-[#056DBA]/10 text-[#056DBA] hover:bg-[#056DBA]/20">{therapist.specialty}</Badge>
                   {therapist.languages?.map((lang) => (
-                    <Badge key={lang} variant="outline" className="border-[#176c9c]/30 text-[#176c9c]">
+                    <Badge key={lang} variant="outline" className="border-[#056DBA]/30 text-[#056DBA]">
                       {lang}
                     </Badge>
                   ))}
@@ -149,11 +176,11 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
 
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-[#176c9c]" />
+                    <MapPin className="h-4 w-4 text-[#056DBA]" />
                     {therapist.location}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-[#176c9c]" />
+                    <Clock className="h-4 w-4 text-[#056DBA]" />
                     {therapist.responseTime}
                   </div>
                 </div>
@@ -166,7 +193,7 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="group">
-                  <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                  <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                     First Name *
                   </label>
                   <Input
@@ -174,11 +201,11 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                     value={formData.firstName}
                     onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
                     placeholder="Enter your first name"
-                    className="border-gray-200 focus:border-[#176c9c] focus:ring-[#176c9c]/20 transition-all duration-300"
+                    className="border-gray-200 focus:border-[#056DBA] focus:ring-[#056DBA]/20 transition-all duration-300"
                   />
                 </div>
                 <div className="group">
-                  <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                  <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                     Last Name *
                   </label>
                   <Input
@@ -186,13 +213,13 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                     value={formData.lastName}
                     onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
                     placeholder="Enter your last name"
-                    className="border-gray-200 focus:border-[#176c9c] focus:ring-[#176c9c]/20 transition-all duration-300"
+                    className="border-gray-200 focus:border-[#056DBA] focus:ring-[#056DBA]/20 transition-all duration-300"
                   />
                 </div>
               </div>
 
               <div className="group">
-                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                   Phone Number *
                 </label>
                 <Input
@@ -201,12 +228,12 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                   value={formData.phone}
                   onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                   placeholder="Enter your phone number"
-                  className="border-gray-200 focus:border-[#176c9c] focus:ring-[#176c9c]/20 transition-all duration-300"
+                  className="border-gray-200 focus:border-[#056DBA] focus:ring-[#056DBA]/20 transition-all duration-300"
                 />
               </div>
 
               <div className="group">
-                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                   Email Address *
                 </label>
                 <Input
@@ -215,12 +242,12 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                   value={formData.email}
                   onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                   placeholder="Enter your email address"
-                  className="border-gray-200 focus:border-[#176c9c] focus:ring-[#176c9c]/20 transition-all duration-300"
+                  className="border-gray-200 focus:border-[#056DBA] focus:ring-[#056DBA]/20 transition-all duration-300"
                 />
               </div>
 
               <div className="group">
-                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                <label className="text-sm font-semibold mb-2 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                   What brings you here today? *
                 </label>
                 <Textarea
@@ -229,20 +256,20 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                   onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
                   placeholder="Please share what you're hoping to work on or any specific concerns..."
                   rows={4}
-                  className="border-gray-200 focus:border-[#176c9c] focus:ring-[#176c9c]/20 transition-all duration-300 resize-none"
+                  className="border-gray-200 focus:border-[#056DBA] focus:ring-[#056DBA]/20 transition-all duration-300 resize-none"
                 />
               </div>
 
-              <div className="p-6 bg-gradient-to-r from-blue-50/80 to-green-50/80 rounded-2xl border border-blue-200/50">
+                <div className="p-6 bg-blue-50/80 rounded-2xl border border-blue-200/50">
                 <div className="flex items-start space-x-3">
                   <Checkbox
                     id="consent"
                     checked={formData.consent}
                     onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, consent: checked as boolean }))}
-                    className="mt-1 border-[#176c9c] data-[state=checked]:bg-[#176c9c]"
+                      className="mt-1 border-[#056DBA] data-[state=checked]:bg-[#056DBA]"
                   />
                   <label htmlFor="consent" className="text-sm text-gray-700 leading-relaxed flex-1">
-                    <Shield className="inline h-4 w-4 mr-1 text-[#176c9c]" />I consent to sharing my information with
+                      <Shield className="inline h-4 w-4 mr-1 text-[#056DBA]" />I consent to sharing my information with
                     LinkTherapy to book with my therapist and be asked for feedback on the service. Your privacy is
                     protected and information is only shared with your chosen therapist. *
                   </label>
@@ -261,7 +288,7 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#176c9c] to-[#8bb6ce] hover:from-[#145a7d] hover:to-[#176c9c] text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-[#056DBA] hover:bg-[#045A99] text-white font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!formData.consent || isSubmitting}
                 >
                   {isSubmitting ? (

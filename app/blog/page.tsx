@@ -89,9 +89,9 @@ export default function BlogPage() {
   const regularPosts = blogPosts.filter((post) => !post.featured)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-green-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20">
       {/* Enhanced Hero Section */}
-      <section className="relative bg-gradient-to-br from-[#176c9c] via-[#8bb6ce] to-[#d1e2eb] text-white py-20 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-[#056DBA] via-[#2F86D2] to-[#8EC5FF] text-white py-20 overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0">
           <div
@@ -132,12 +132,12 @@ export default function BlogPage() {
             <div
               className={`text-center mb-12 transition-all duration-1000 delay-200 ${isVisible ? "animate-slide-up" : "opacity-0"}`}
             >
-              <div className="inline-flex items-center gap-2 bg-[#176c9c]/10 px-4 py-2 rounded-full mb-4">
-                <Bookmark className="h-5 w-5 text-[#176c9c]" />
-                <span className="text-[#176c9c] font-medium">Featured Articles</span>
+              <div className="inline-flex items-center gap-2 bg-[#056DBA]/10 px-4 py-2 rounded-full mb-4">
+                <Bookmark className="h-5 w-5 text-[#056DBA]" />
+                <span className="text-[#056DBA] font-medium">Featured Articles</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                Must-Read <span className="text-[#176c9c]">Articles</span>
+                Must-Read <span className="text-[#056DBA]">Articles</span>
               </h2>
             </div>
 
@@ -148,7 +148,7 @@ export default function BlogPage() {
                   className={`group hover-lift border-0 shadow-lg hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-white to-gray-50/50 overflow-hidden ${isVisible ? "animate-slide-up" : "opacity-0"}`}
                   style={{ animationDelay: `${(index + 3) * 0.2}s` }}
                 >
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#176c9c] to-[#8bb6ce]" />
+                  <div className="absolute top-0 left-0 w-full h-1 bg-[#056DBA]" />
                   <div className="aspect-video overflow-hidden">
                     <img
                       src={post.image || "/placeholder.svg"}
@@ -163,7 +163,7 @@ export default function BlogPage() {
                     <div className="flex items-center justify-between mb-3">
                       <Badge
                         variant="secondary"
-                        className="bg-[#176c9c]/10 text-[#176c9c] hover:bg-[#176c9c]/20 transition-colors"
+                        className="bg-[#056DBA]/10 text-[#056DBA] hover:bg-[#056DBA]/20 transition-colors"
                       >
                         {post.category}
                       </Badge>
@@ -172,7 +172,7 @@ export default function BlogPage() {
                         {post.readTime}
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold line-clamp-2 mb-3 group-hover:text-[#176c9c] transition-colors">
+                    <h3 className="text-xl font-bold line-clamp-2 mb-3 group-hover:text-[#056DBA] transition-colors">
                       {post.title}
                     </h3>
                     <p className="text-gray-600 line-clamp-3 leading-relaxed">{post.excerpt}</p>
@@ -190,7 +190,7 @@ export default function BlogPage() {
                     </div>
                     <div className="flex gap-2">
                       <Link href={`/blog/${post.id}`} className="flex-1">
-                        <Button className="w-full bg-gradient-to-r from-[#176c9c] to-[#8bb6ce] hover:from-[#145a7d] hover:to-[#176c9c] text-white font-semibold transition-all duration-300 hover:scale-105">
+                        <Button className="w-full bg-[#056DBA] hover:bg-[#045A99] text-white font-semibold transition-all duration-300 hover:scale-105">
                           Read Article
                           <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                         </Button>
@@ -198,7 +198,7 @@ export default function BlogPage() {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="border-[#176c9c]/30 text-[#176c9c] hover:bg-[#176c9c]/10 transition-all duration-300 bg-transparent"
+                        className="border-[#056DBA]/30 text-[#056DBA] hover:bg-[#056DBA]/10 transition-all duration-300 bg-transparent"
                       >
                         <Share2 className="h-4 w-4" />
                       </Button>
@@ -218,7 +218,7 @@ export default function BlogPage() {
             className={`text-center mb-12 transition-all duration-1000 delay-400 ${isVisible ? "animate-slide-up" : "opacity-0"}`}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Latest <span className="text-[#176c9c]">Articles</span>
+              Latest <span className="text-[#056DBA]">Articles</span>
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               Stay updated with the latest insights and tips from our mental health experts
@@ -243,7 +243,7 @@ export default function BlogPage() {
                   <div className="flex items-center justify-between mb-3">
                     <Badge
                       variant="secondary"
-                      className="bg-[#176c9c]/10 text-[#176c9c] hover:bg-[#176c9c]/20 transition-colors"
+                      className="bg-[#056DBA]/10 text-[#056DBA] hover:bg-[#056DBA]/20 transition-colors"
                     >
                       {post.category}
                     </Badge>
@@ -252,7 +252,7 @@ export default function BlogPage() {
                       {post.readTime}
                     </div>
                   </div>
-                  <h3 className="text-lg font-bold line-clamp-2 mb-3 group-hover:text-[#176c9c] transition-colors">
+                  <h3 className="text-lg font-bold line-clamp-2 mb-3 group-hover:text-[#056DBA] transition-colors">
                     {post.title}
                   </h3>
                   <p className="text-gray-600 line-clamp-3 text-sm leading-relaxed">{post.excerpt}</p>
@@ -271,7 +271,7 @@ export default function BlogPage() {
                   <Link href={`/blog/${post.id}`}>
                     <Button
                       variant="outline"
-                      className="w-full group border-[#176c9c]/30 text-[#176c9c] hover:bg-[#176c9c] hover:text-white transition-all duration-300 bg-transparent"
+                      className="w-full group border-[#056DBA]/30 text-[#056DBA] hover:bg-[#056DBA] hover:text-white transition-all duration-300 bg-transparent"
                     >
                       Read More
                       <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />

@@ -13,7 +13,7 @@ export function HeroSection() {
   }, [])
 
   return (
-    <section className="relative min-h-screen bg-gradient-to-br from-[#176c9c] via-[#8bb6ce] to-[#d1e2eb] text-white overflow-hidden">
+    <section className="relative min-h-screen bg-gradient-to-br from-[#056DBA] via-[#2F86D2] to-[#8EC5FF] text-white overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div
@@ -34,7 +34,7 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container mx-auto px-4 py-20 relative z-10">
+      <div className="container mx-auto px-4 relative z-10 min-h-screen flex flex-col items-center justify-center">
         <div className="text-center max-w-4xl mx-auto">
           {/* Main heading with staggered animation */}
           <div className={`transition-all duration-1000 ${isVisible ? "animate-slide-up" : "opacity-0"}`}>
@@ -69,7 +69,7 @@ export function HeroSection() {
                 </div>
                 <Button
                   size="lg"
-                  className="h-14 px-8 bg-white text-[#176c9c] hover:bg-blue-50 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                  className="h-14 px-8 bg-white text-[#056DBA] hover:bg-blue-50 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg"
                 >
                   <Sparkles className="h-5 w-5 mr-2" />
                   Search

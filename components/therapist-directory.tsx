@@ -3,128 +3,45 @@
 import { useState, useEffect } from "react"
 import { Filter, MapPin, Star, DollarSign, Clock, Heart, Award, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { ContactModal } from "@/components/contact-modal"
 
-// Mock therapist data with enhanced information
-const therapists = [
-  {
-    id: 1,
-    name: "Dr. Sarah Johnson",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Anxiety & Depression",
-    location: "Downtown, City Center",
-    city: "downtown",
-    experience: 8,
-    price: 120,
-    rating: 4.9,
-    reviews: 127,
-    bio: "Specializing in cognitive behavioral therapy with over 8 years of experience helping clients overcome anxiety and depression.",
-    credentials: "PhD in Clinical Psychology, Licensed Clinical Psychologist",
-    verified: true,
-    responseTime: "Usually responds within 2 hours",
-    languages: ["English", "Spanish"],
-  },
-  {
-    id: 2,
-    name: "Dr. Michael Chen",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Couples Therapy",
-    location: "Westside District",
-    city: "westside",
-    experience: 12,
-    price: 150,
-    rating: 4.8,
-    reviews: 89,
-    bio: "Expert in relationship counseling and family therapy, helping couples build stronger connections.",
-    credentials: "PhD in Marriage & Family Therapy, Licensed Marriage Counselor",
-    verified: true,
-    responseTime: "Usually responds within 4 hours",
-    languages: ["English", "Mandarin"],
-  },
-  {
-    id: 3,
-    name: "Dr. Emily Rodriguez",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Trauma & PTSD",
-    location: "North Hills",
-    city: "north",
-    experience: 10,
-    price: 135,
-    rating: 4.9,
-    reviews: 156,
-    bio: "Specialized in trauma-informed care and EMDR therapy for PTSD and complex trauma recovery.",
-    credentials: "PhD in Clinical Psychology, EMDR Certified Therapist",
-    verified: true,
-    responseTime: "Usually responds within 1 hour",
-    languages: ["English", "Spanish", "French"],
-  },
-  {
-    id: 4,
-    name: "Dr. James Wilson",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Addiction Recovery",
-    location: "East Side",
-    city: "east",
-    experience: 15,
-    price: 110,
-    rating: 4.7,
-    reviews: 203,
-    bio: "Comprehensive addiction treatment and recovery support with evidence-based approaches.",
-    credentials: "PhD in Addiction Psychology, Certified Addiction Counselor",
-    verified: true,
-    responseTime: "Usually responds within 3 hours",
-    languages: ["English"],
-  },
-  {
-    id: 5,
-    name: "Dr. Lisa Park",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Child Psychology",
-    location: "Suburban Area",
-    city: "suburban",
-    experience: 6,
-    price: 125,
-    rating: 4.8,
-    reviews: 94,
-    bio: "Specialized in child and adolescent therapy with focus on behavioral and developmental issues.",
-    credentials: "PhD in Child Psychology, Licensed Child Therapist",
-    verified: true,
-    responseTime: "Usually responds within 3 hours",
-    languages: ["English", "Korean"],
-  },
-  {
-    id: 6,
-    name: "Dr. Robert Martinez",
-    image: "/placeholder.svg?height=200&width=200",
-    specialty: "Family Therapy",
-    location: "Central District",
-    city: "central",
-    experience: 20,
-    price: 140,
-    rating: 4.9,
-    reviews: 178,
-    bio: "Experienced family therapist helping families navigate complex relationships and communication challenges.",
-    credentials: "PhD in Family Therapy, Licensed Family Counselor",
-    verified: true,
-    responseTime: "Usually responds within 2 hours",
-    languages: ["English", "Spanish"],
-  },
-]
+type PublicTherapist = {
+  id: string
+  full_name: string | null
+  title: string | null
+  profile_image_url: string | null
+  bio_short: string | null
+  years_of_experience: number | null
+  session_price_60_min: number | null
+  session_price_30_min: number | null
+  ranking_points: number | null
+  rating: number | null
+}
 
-export function TherapistDirectory() {
-  const [selectedTherapist, setSelectedTherapist] = useState<(typeof therapists)[0] | null>(null)
+export function TherapistDirectory({ initialTherapists = [] as any[] }: { initialTherapists?: any[] }) {
+  const [selectedTherapist, setSelectedTherapist] = useState<any>(null)
   const [sortBy, setSortBy] = useState("rating")
   const [priceRange, setPriceRange] = useState([50, 200])
   const [specialtyFilter, setSpecialtyFilter] = useState("all")
   const [locationFilter, setLocationFilter] = useState("all")
   const [isVisible, setIsVisible] = useState(false)
   const [experienceFilter, setExperienceFilter] = useState("all")
+  const [therapists, setTherapists] = useState<PublicTherapist[]>(initialTherapists as any)
 
   useEffect(() => {
+    // Background refresh after first paint
+    ;(async () => {
+      try {
+        const res = await fetch("/api/therapists", { cache: "no-store" })
+        const json = await res.json()
+        if (Array.isArray(json.therapists)) setTherapists(json.therapists)
+      } catch {}
+    })()
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -143,60 +60,78 @@ export function TherapistDirectory() {
   const sortedTherapists = [...therapists].sort((a, b) => {
     switch (sortBy) {
       case "price-high":
-        return b.price - a.price
+        return (b.session_price_60_min || 0) - (a.session_price_60_min || 0)
       case "price-low":
-        return a.price - b.price
+        return (a.session_price_60_min || 0) - (b.session_price_60_min || 0)
       case "experience":
-        return b.experience - a.experience
+        return (b.years_of_experience || 0) - (a.years_of_experience || 0)
       case "rating":
       default:
-        return b.rating - a.rating
+        return (b.rating || 0) - (a.rating || 0)
     }
   })
 
   const filteredTherapists = sortedTherapists.filter((therapist) => {
-    const priceMatch = therapist.price >= priceRange[0] && therapist.price <= priceRange[1]
-    const specialtyMatch =
-      specialtyFilter === "all" || therapist.specialty.toLowerCase().includes(specialtyFilter.toLowerCase())
-    const locationMatch = locationFilter === "all" || therapist.city === locationFilter
+    const price = therapist.session_price_60_min || 0
+    const exp = therapist.years_of_experience || 0
+    const priceMatch = price >= priceRange[0] && price <= priceRange[1]
+    const specialtyMatch = specialtyFilter === "all"
+    const locationMatch = locationFilter === "all"
     const experienceMatch =
       experienceFilter === "all" ||
-      (experienceFilter === "0-5" && therapist.experience <= 5) ||
-      (experienceFilter === "6-10" && therapist.experience >= 6 && therapist.experience <= 10) ||
-      (experienceFilter === "11-15" && therapist.experience >= 11 && therapist.experience <= 15) ||
-      (experienceFilter === "16+" && therapist.experience >= 16)
+      (experienceFilter === "0-5" && exp <= 5) ||
+      (experienceFilter === "6-10" && exp >= 6 && exp <= 10) ||
+      (experienceFilter === "11-15" && exp >= 11 && exp <= 15) ||
+      (experienceFilter === "16+" && exp >= 16)
 
     return priceMatch && specialtyMatch && locationMatch && experienceMatch
   })
 
   return (
-    <section id="therapist-directory" className="py-20 bg-gradient-to-br from-gray-50 via-white to-[#d1e8d9]/20">
+    <section id="therapist-directory" className="py-20 bg-gradient-to-br from-gray-50 via-white to-blue-50/20">
       <div className="container mx-auto px-4">
         <div
           className={`text-center mb-16 transition-all duration-1000 ${isVisible ? "animate-slide-up" : "opacity-0"}`}
         >
-          <div className="inline-flex items-center gap-2 bg-[#176c9c]/10 px-4 py-2 rounded-full mb-4">
+          <div className="inline-flex items-center gap-2 bg-[#056DBA]/10 px-4 py-2 rounded-full mb-4">
             <Heart className="h-5 w-5 text-[#176c9c]" />
-            <span className="text-[#176c9c] font-medium">Find Your Match</span>
+            <span className="text-[#056DBA] font-medium">Find Your Match</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Meet Our <span className="text-[#176c9c]">Expert Therapists</span>
+            Meet Our <span className="text-[#056DBA]">Expert Therapists</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Browse through our carefully vetted network of mental health professionals
           </p>
+          <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
+            <Button
+              asChild
+              size="lg"
+              className="bg-[#056DBA] hover:bg-[#045A99] text-white shadow-md"
+            >
+              <a href="#therapist-directory">Get Matched With a Therapist</a>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="secondary"
+              className="bg-white text-[#056DBA] border border-[#056DBA]/30 hover:bg-blue-50"
+            >
+              <Link href="/how-to-choose">Explore Personal Growth</Link>
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Enhanced Filters Sidebar */}
-          <div className="lg:w-1/4">
+          <div className="w-full lg:w-1/4">
             <div
               className={`transition-all duration-1000 delay-200 ${isVisible ? "animate-slide-in-left" : "opacity-0"}`}
             >
-              <Card className="sticky top-8 hover-lift border-0 shadow-lg bg-gradient-to-br from-white to-blue-50/50">
+              <Card className="lg:sticky lg:top-8 hover-lift border-0 shadow-lg bg-gradient-to-br from-white to-blue-50/50 max-w-md mx-auto lg:mx-0">
                 <CardHeader className="pb-4">
                   <h3 className="text-xl font-bold flex items-center gap-2 text-gray-900">
-                    <Filter className="h-5 w-5 text-[#176c9c]" />
+                    <Filter className="h-5 w-5 text-[#056DBA]" />
                     Refine Your Search
                   </h3>
                 </CardHeader>
@@ -206,7 +141,7 @@ export function TherapistDirectory() {
                       Sort By
                     </label>
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="border-gray-200 hover:border-[#176c9c] transition-colors">
+                      <SelectTrigger className="border-gray-200 hover:border-[#056DBA] transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -219,11 +154,11 @@ export function TherapistDirectory() {
                   </div>
 
                   <div className="group">
-                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                       Specialty
                     </label>
                     <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                      <SelectTrigger className="border-gray-200 hover:border-[#176c9c] transition-colors">
+                      <SelectTrigger className="border-gray-200 hover:border-[#056DBA] transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -239,11 +174,11 @@ export function TherapistDirectory() {
                   </div>
 
                   <div className="group">
-                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                       Location
                     </label>
                     <Select value={locationFilter} onValueChange={setLocationFilter}>
-                      <SelectTrigger className="border-gray-200 hover:border-[#176c9c] transition-colors">
+                      <SelectTrigger className="border-gray-200 hover:border-[#056DBA] transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -259,11 +194,11 @@ export function TherapistDirectory() {
                   </div>
 
                   <div className="group">
-                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                       Years of Experience
                     </label>
                     <Select value={experienceFilter} onValueChange={setExperienceFilter}>
-                      <SelectTrigger className="border-gray-200 hover:border-[#176c9c] transition-colors">
+                      <SelectTrigger className="border-gray-200 hover:border-[#056DBA] transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -277,7 +212,7 @@ export function TherapistDirectory() {
                   </div>
 
                   <div className="group">
-                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#176c9c] transition-colors">
+                    <label className="text-sm font-semibold mb-3 block text-gray-700 group-hover:text-[#056DBA] transition-colors">
                       Price Range: ${priceRange[0]} - ${priceRange[1]}
                     </label>
                     <div className="px-2">
@@ -297,7 +232,7 @@ export function TherapistDirectory() {
           </div>
 
           {/* Enhanced Therapist Grid */}
-          <div className="lg:w-3/4">
+          <div className="lg:w-3/4 w-full max-w-5xl mx-auto">
             <div
               className={`mb-8 transition-all duration-1000 delay-300 ${isVisible ? "animate-slide-in-right" : "opacity-0"}`}
             >
@@ -322,15 +257,15 @@ export function TherapistDirectory() {
                   className="group hover-lift border-0 shadow-lg hover:shadow-2xl transition-all duration-500 bg-gradient-to-br from-white to-gray-50/50 overflow-hidden"
                   style={{ animationDelay: `${(index + 4) * 0.1}s` }}
                 >
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#176c9c] to-[#8bb6ce]" />
+                  <div className="absolute top-0 left-0 w-full h-1 bg-[#056DBA]" />
 
                   <CardContent className="p-6">
                     <div className="flex gap-4">
                       <div className="relative">
                         <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-white shadow-lg group-hover:ring-[#176c9c]/20 transition-all duration-300">
                           <img
-                            src={therapist.image || "/placeholder.svg"}
-                            alt={therapist.name}
+                            src={therapist.profile_image_url || "/placeholder.svg"}
+                            alt={therapist.full_name || "Therapist"}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                         </div>
@@ -343,8 +278,8 @@ export function TherapistDirectory() {
 
                       <div className="flex-1">
                         <div className="flex items-start justify-between mb-2">
-                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-[#176c9c] transition-colors">
-                            {therapist.name}
+                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-[#056DBA] transition-colors">
+                            {therapist.full_name}
                           </h3>
                           <div className="flex items-center gap-1 text-yellow-500">
                             <Star className="h-4 w-4 fill-current" />
@@ -352,25 +287,27 @@ export function TherapistDirectory() {
                           </div>
                         </div>
 
-                        <Badge
-                          variant="secondary"
-                          className="mb-3 bg-[#176c9c]/10 text-[#176c9c] hover:bg-[#176c9c]/20 transition-colors"
-                        >
-                          {therapist.specialty}
-                        </Badge>
+                        {therapist.title && (
+                          <Badge
+                            variant="secondary"
+                            className="mb-3 bg-[#056DBA]/10 text-[#056DBA] hover:bg-[#056DBA]/20 transition-colors"
+                          >
+                            {therapist.title}
+                          </Badge>
+                        )}
 
                         <div className="space-y-2 text-sm text-gray-600 mb-4">
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-[#176c9c]" />
-                            {therapist.location}
+                            <MapPin className="h-4 w-4 text-[#056DBA]" />
+                            Public profile
                           </div>
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-[#176c9c]" />
-                            {therapist.experience} years experience
+                            <Clock className="h-4 w-4 text-[#056DBA]" />
+                            {(therapist.years_of_experience || 0)} years experience
                           </div>
                           <div className="flex items-center gap-2">
-                            <MessageCircle className="h-4 w-4 text-[#176c9c]" />
-                            {therapist.responseTime}
+                            <MessageCircle className="h-4 w-4 text-[#056DBA]" />
+                            Typically responds within 24 hours
                           </div>
                         </div>
 
@@ -379,17 +316,33 @@ export function TherapistDirectory() {
                         </p>
 
                         <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-1 font-bold text-[#176c9c] text-lg">
+                          <div className="flex items-center gap-1 font-bold text-[#056DBA] text-lg">
                             <DollarSign className="h-5 w-5" />
-                            {therapist.price}
+                            {therapist.session_price_60_min || "—"}
                             <span className="text-sm font-normal text-gray-500">/session</span>
                           </div>
                           <div className="text-sm text-gray-500">({therapist.reviews} reviews)</div>
                         </div>
 
-                        <Button
-                          onClick={() => setSelectedTherapist(therapist)}
-                          className="w-full bg-gradient-to-r from-[#176c9c] to-[#8bb6ce] hover:from-[#145a7d] hover:to-[#176c9c] text-white font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg group-hover:animate-pulse-glow"
+                          <Button
+                          onClick={() => setSelectedTherapist({
+                            id: therapist.id,
+                            name: therapist.full_name || "",
+                            image: therapist.profile_image_url || "/placeholder.svg",
+                            specialty: therapist.title || "",
+                            location: "",
+                            city: "",
+                            experience: therapist.years_of_experience || 0,
+                            price: therapist.session_price_60_min || 0,
+                            rating: therapist.rating || 0,
+                            reviews: 0,
+                            bio: therapist.bio_short || "",
+                            credentials: "",
+                            verified: true,
+                            responseTime: "Usually responds within 24 hours",
+                            languages: [],
+                          })}
+                            className="w-full bg-[#056DBA] hover:bg-[#045A99] text-white font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg group-hover:animate-pulse-glow"
                         >
                           <Heart className="h-4 w-4 mr-2" />
                           Connect Now

@@ -31,14 +31,14 @@ export function Navigation() {
             <div className="relative">
               <Heart
                 className={`h-8 w-8 transition-all duration-300 ${
-                  isScrolled ? "text-[#176c9c]" : "text-white"
+                  isScrolled ? "text-[#056DBA]" : "text-white"
                 } group-hover:scale-110`}
               />
               <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-pink-400 animate-pulse" />
             </div>
             <span
               className={`text-xl font-bold transition-all duration-300 ${
-                isScrolled ? "text-[#176c9c]" : "text-white"
+                isScrolled ? "text-[#056DBA]" : "text-white"
               }`}
             >
               LinkTherapy
@@ -50,7 +50,7 @@ export function Navigation() {
             <Link
               href="/"
               className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#176c9c]" : "text-white/90 hover:text-white"
+                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
               }`}
             >
               Home
@@ -58,7 +58,7 @@ export function Navigation() {
             <Link
               href="/blog"
               className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#176c9c]" : "text-white/90 hover:text-white"
+                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
               }`}
             >
               Blog
@@ -66,7 +66,7 @@ export function Navigation() {
             <Link
               href="/how-to-choose"
               className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#176c9c]" : "text-white/90 hover:text-white"
+                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
               }`}
             >
               How to Choose
@@ -74,14 +74,14 @@ export function Navigation() {
             <Link
               href="/for-therapists"
               className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#176c9c]" : "text-white/90 hover:text-white"
+                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
               }`}
             >
               For Therapists
             </Link>
             <Button
               className={`transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "bg-[#176c9c] hover:bg-[#145a7d] text-white" : "bg-white text-[#176c9c] hover:bg-blue-50"
+                isScrolled ? "bg-[#056DBA] hover:bg-[#045A99] text-white" : "bg-white text-[#056DBA] hover:bg-blue-50"
               }`}
             >
               <Sparkles className="h-4 w-4 mr-2" />
@@ -106,34 +106,34 @@ export function Navigation() {
             <div className="flex flex-col space-y-4">
               <Link
                 href="/"
-                className="text-gray-700 hover:text-[#176c9c] transition-colors font-medium px-2 py-1 rounded hover:bg-[#176c9c]/10"
+                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 href="/blog"
-                className="text-gray-700 hover:text-[#176c9c] transition-colors font-medium px-2 py-1 rounded hover:bg-[#176c9c]/10"
+                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Blog
               </Link>
               <Link
                 href="/how-to-choose"
-                className="text-gray-700 hover:text-[#176c9c] transition-colors font-medium px-2 py-1 rounded hover:bg-[#176c9c]/10"
+                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
               >
                 How to Choose
               </Link>
               <Link
                 href="/for-therapists"
-                className="text-gray-700 hover:text-[#176c9c] transition-colors font-medium px-2 py-1 rounded hover:bg-[#176c9c]/10"
+                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
               >
                 For Therapists
               </Link>
               <Button
-                className="bg-[#176c9c] hover:bg-[#145a7d] text-white w-fit transition-all duration-300 hover:scale-105"
+                className="bg-[#056DBA] hover:bg-[#045A99] text-white w-fit transition-all duration-300 hover:scale-105"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <Sparkles className="h-4 w-4 mr-2" />
