@@ -6,7 +6,7 @@ import { MapPin, Star, Send, Shield, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
+import Checkbox from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { supabaseBrowser } from "@/lib/supabase-browser"
@@ -265,8 +265,8 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                   <Checkbox
                     id="consent"
                     checked={formData.consent}
-                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, consent: checked as boolean }))}
-                      className="mt-1 border-[#056DBA] data-[state=checked]:bg-[#056DBA]"
+                    onChange={(checked) => setFormData((prev) => ({ ...prev, consent: checked }))}
+                    className="mt-1"
                   />
                   <label htmlFor="consent" className="text-sm text-gray-700 leading-relaxed flex-1">
                       <Shield className="inline h-4 w-4 mr-1 text-[#056DBA]" />I consent to sharing my information with

@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Menu, X, Heart, Sparkles } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { Menu, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
+import logoHorizontal from "@/app/images/logo-horizontal.png"
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const pathname = usePathname()
+  const isHomePage = pathname === "/"
 
   useEffect(() => {
     const handleScroll = () => {
@@ -18,71 +23,76 @@ export function Navigation() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  // Determine background and text colors based on page and scroll state
+  const getNavStyles = () => {
+    if (isHomePage) {
+      // Homepage: subtle gradient when not scrolled, white when scrolled
+      return {
+        background: isScrolled ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50" : "bg-gradient-to-b from-white/50 to-transparent backdrop-blur-sm",
+        textColor: isScrolled ? "text-gray-700" : "text-white/90",
+        logoColor: isScrolled ? "text-[#056DBA]" : "text-white",
+        buttonStyle: isScrolled ? "bg-[#056DBA] hover:bg-[#045A99] text-white" : "bg-white text-[#056DBA] hover:bg-blue-50"
+      }
+    } else {
+      // Other pages: always white background
+      return {
+        background: "bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50",
+        textColor: "text-gray-700",
+        logoColor: "text-[#056DBA]",
+        buttonStyle: "bg-[#056DBA] hover:bg-[#045A99] text-white"
+      }
+    }
+  }
+
+  const styles = getNavStyles()
+
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50" : "bg-transparent"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${styles.background}`}
     >
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Enhanced Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center group">
             <div className="relative">
-              <Heart
-                className={`h-8 w-8 transition-all duration-300 ${
-                  isScrolled ? "text-[#056DBA]" : "text-white"
-                } group-hover:scale-110`}
+              <Image
+                src={logoHorizontal}
+                alt="LinkTherapy"
+                className="h-8 w-auto transition-all duration-300 group-hover:scale-110"
+                priority
               />
-              <Sparkles className="absolute -top-1 -right-1 h-3 w-3 text-pink-400 animate-pulse" />
+              
             </div>
-            <span
-              className={`text-xl font-bold transition-all duration-300 ${
-                isScrolled ? "text-[#056DBA]" : "text-white"
-              }`}
-            >
-              LinkTherapy
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
-              className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
-              }`}
+              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
               Home
             </Link>
             <Link
               href="/blog"
-              className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
-              }`}
+              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
               Blog
             </Link>
             <Link
               href="/how-to-choose"
-              className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
-              }`}
+              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
               How to Choose
             </Link>
             <Link
               href="/for-therapists"
-              className={`font-medium transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "text-gray-700 hover:text-[#056DBA]" : "text-white/90 hover:text-white"
-              }`}
+              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
               For Therapists
             </Link>
             <Button
-              className={`transition-all duration-300 hover:scale-105 ${
-                isScrolled ? "bg-[#056DBA] hover:bg-[#045A99] text-white" : "bg-white text-[#056DBA] hover:bg-blue-50"
-              }`}
+              className={`transition-all duration-300 hover:scale-105 ${styles.buttonStyle}`}
             >
               <Sparkles className="h-4 w-4 mr-2" />
               Get Started
@@ -91,9 +101,7 @@ export function Navigation() {
 
           {/* Mobile Menu Button */}
           <button
-            className={`md:hidden transition-all duration-300 hover:scale-110 ${
-              isScrolled ? "text-gray-700" : "text-white"
-            }`}
+            className={`md:hidden transition-all duration-300 hover:scale-110 ${styles.textColor}`}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}

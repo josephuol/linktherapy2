@@ -21,6 +21,7 @@ type PublicTherapist = {
   session_price_30_min: number | null
   ranking_points: number | null
   rating: number | null
+  status?: string | null
 }
 
 export function TherapistDirectory({ initialTherapists = [] as any[] }: { initialTherapists?: any[] }) {
@@ -312,7 +313,7 @@ export function TherapistDirectory({ initialTherapists = [] as any[] }: { initia
                         </div>
 
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2 group-hover:text-gray-700 transition-colors">
-                          {therapist.bio}
+                          {therapist.bio_short}
                         </p>
 
                         <div className="flex items-center justify-between mb-4">

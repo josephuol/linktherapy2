@@ -10,9 +10,10 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 210 79% 46%;
+    /* Adjusted to match logo blues */
+    --primary: 209 95% 35%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 80%;
+    --secondary: 209 80% 90%;
     --secondary-foreground: 222.2 84% 4.9%;
     --muted: 210 40% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -22,7 +23,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 210 79% 46%;
+    --ring: 209 95% 35%;
     --radius: 0.5rem;
   }
 }
@@ -36,6 +37,42 @@
   }
 }
 
+@layer utilities {
+  /* Sidebar menu utilities (ported from template) */
+  .menu-item {
+    @apply relative flex items-center w-full gap-3 px-3 py-2 font-medium rounded-lg text-sm;
+  }
+  .menu-item-active { @apply bg-blue-50 text-[#056DBA]; }
+  .menu-item-inactive { @apply text-gray-700 hover:bg-gray-100; }
+  .menu-item-icon-active { @apply text-[#056DBA]; }
+  .menu-item-icon-inactive { @apply text-gray-500 group-hover:text-gray-700; }
+
+  .no-scrollbar::-webkit-scrollbar { @apply hidden; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .custom-scrollbar::-webkit-scrollbar { @apply w-1.5 h-1.5; }
+  .custom-scrollbar::-webkit-scrollbar-track { @apply rounded-full; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-gray-300 rounded-full; }
+}
+
+/* Calendar theming (subset of template styling) */
+.fc .fc-toolbar.fc-header-toolbar { @apply flex-col gap-4 px-6 pt-6 sm:flex-row; }
+.fc-button-group { @apply gap-2; }
+.fc-button-group .fc-button { @apply flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-transparent hover:border-gray-200 hover:bg-gray-50; }
+.fc-toolbar-title { @apply text-lg font-medium text-gray-800; }
+.fc .fc-col-header-cell-cushion { @apply px-5 py-4 text-sm font-medium uppercase text-gray-400; }
+.fc .fc-daygrid-day-number { @apply p-3 text-sm font-medium text-gray-700; }
+.event-fc-color { @apply rounded-lg py-2.5 pl-4 pr-3; }
+.event-fc-color .fc-event-title { @apply p-0 text-sm font-normal text-gray-700; }
+.fc-daygrid-event-dot { @apply w-1 h-5 ml-0 mr-3 border-none rounded-sm; }
+.event-fc-color.fc-bg-primary { @apply border-blue-50 bg-blue-50; }
+.event-fc-color.fc-bg-danger { @apply border-red-50 bg-red-50; }
+.event-fc-color.fc-bg-success { @apply border-green-50 bg-green-50; }
+.event-fc-color.fc-bg-warning { @apply border-yellow-50 bg-yellow-50; }
+.event-fc-color.fc-bg-primary .fc-daygrid-event-dot { @apply bg-[#056DBA]; }
+.event-fc-color.fc-bg-danger .fc-daygrid-event-dot { @apply bg-red-500; }
+.event-fc-color.fc-bg-success .fc-daygrid-event-dot { @apply bg-green-500; }
+.event-fc-color.fc-bg-warning .fc-daygrid-event-dot { @apply bg-yellow-500; }
 /* Custom animations */
 @keyframes float {
   0%,
