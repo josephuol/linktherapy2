@@ -6,12 +6,14 @@ import { supabaseBrowser } from "@/lib/supabase-browser"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { format } from "date-fns"
 
 export default function AdminDashboardPage() {
   const supabase = supabaseBrowser()
   const router = useRouter()
   const [therapists, setTherapists] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [metrics, setMetrics] = useState<any | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -27,6 +29,23 @@ export default function AdminDashboardPage() {
       }
       const { data } = await supabase.from("therapists").select("user_id, full_name, title, status, ranking_points, churn_rate_monthly, total_sessions").order("ranking_points", { ascending: false })
       setTherapists(data ?? [])
+      // Revenue and activity metrics
+      const now = new Date()
+      const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const startPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const endPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+      const [{ data: sessionsMonth }, { data: sessionsPrev }, patientsHead, requestsHead] = await Promise.all([
+        supabase.from("sessions").select("price").gte("session_date", startMonth.toISOString()),
+        supabase.from("sessions").select("price").gte("session_date", startPrevMonth.toISOString()).lte("session_date", endPrevMonth.toISOString()),
+        supabase.from("patients").select("id", { count: "exact", head: true }),
+        supabase.from("contact_requests").select("id", { count: "exact", head: true }),
+      ])
+      const revenueMonth = (sessionsMonth || []).reduce((sum: number, s: any) => sum + (s.price || 0), 0)
+      const revenuePrev = (sessionsPrev || []).reduce((sum: number, s: any) => sum + (s.price || 0), 0)
+      const growth = revenuePrev ? ((revenueMonth - revenuePrev) / revenuePrev) * 100 : null
+      const patientsCount = (patientsHead as any)?.count ?? 0
+      const requestsCount = (requestsHead as any)?.count ?? 0
+      setMetrics({ revenueMonth, revenuePrev, growth, patients: patientsCount, requests: requestsCount })
       setLoading(false)
     }
     init()
@@ -43,6 +62,14 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 py-10">
       <div className="container mx-auto px-4 max-w-7xl">
         <h1 className="text-3xl md:text-4xl font-bold mb-6 text-[#056DBA]">Admin Dashboard</h1>
+        {metrics && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card><CardHeader><div className="text-sm text-gray-500">Revenue (this month)</div></CardHeader><CardContent><div className="text-2xl font-bold">${(metrics.revenueMonth ?? 0).toFixed(0)}</div></CardContent></Card>
+            <Card><CardHeader><div className="text-sm text-gray-500">Revenue (last month)</div></CardHeader><CardContent><div className="text-2xl font-bold">${(metrics.revenuePrev ?? 0).toFixed(0)}</div></CardContent></Card>
+            <Card><CardHeader><div className="text-sm text-gray-500">Growth</div></CardHeader><CardContent><div className="text-2xl font-bold">{metrics.growth === null ? "—" : `${metrics.growth.toFixed(1)}%`}</div></CardContent></Card>
+            <Card><CardHeader><div className="text-sm text-gray-500">Patients / Requests</div></CardHeader><CardContent><div className="text-2xl font-bold">{metrics.patients || 0} / {metrics.requests || 0}</div></CardContent></Card>
+          </div>
+        )}
         <Card>
           <CardHeader>
             <div className="text-xl font-bold text-gray-900">Therapists</div>
