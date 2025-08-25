@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Heart, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
+import { Heart, Mail, Phone, MapPin, Instagram } from "lucide-react"
 
 export function Footer() {
   const [isVisible, setIsVisible] = useState(false)
@@ -93,10 +93,10 @@ export function Footer() {
                 🎯 How to Choose
               </Link>
               <Link
-                href="/blog"
+                href="/therapists"
                 className="block text-blue-100 hover:text-white transition-all duration-300 hover:translate-x-2 hover:scale-105"
               >
-                📚 Blog & Articles
+                🧠 Therapist Directory
               </Link>
               <Link
                 href="/for-therapists"
@@ -149,27 +149,21 @@ export function Footer() {
               <div className="flex gap-4">
                 <a
                   href="#"
-                  className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-110 hover:rotate-12"
-                >
-                  <Facebook className="h-5 w-5" />
-                </a>
-                <a
-                  href="#"
-                  className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-110 hover:rotate-12"
-                >
-                  <Twitter className="h-5 w-5" />
-                </a>
-                <a
-                  href="#"
+                  aria-label="Instagram"
                   className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-110 hover:rotate-12"
                 >
                   <Instagram className="h-5 w-5" />
                 </a>
                 <a
                   href="#"
+                  aria-label="TikTok"
                   className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-110 hover:rotate-12"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <Linkedin className="h-5 w-5" />
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5" fill="currentColor">
+                    <path d="M39.6 17.2c-3.3 0-6.5-1.1-9-3.2v14.2c0 6.6-5.4 12-12 12S6.6 34.8 6.6 28.2c0-6.6 5.4-12 12-12 1 0 2 .1 3 .4v5.4c-.9-.4-1.9-.6-3-.6-3.7 0-6.6 3-6.6 6.6s3 6.6 6.6 6.6 6.6-3 6.6-6.6V4.2h5c.8 2.8 3.1 5.1 5.8 6v6.9z"/>
+                  </svg>
                 </a>
               </div>
             </div>

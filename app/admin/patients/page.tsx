@@ -89,8 +89,8 @@ export default function AdminPatientsPage() {
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xl font-bold text-gray-900">Directory</div>
-              <div className="flex gap-2">
-                <Input placeholder="Search name, email, phone" value={q} onChange={e => setQ(e.target.value)} />
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Input className="flex-1" placeholder="Search name, email, phone" value={q} onChange={e => setQ(e.target.value)} />
               </div>
             </div>
           </CardHeader>
@@ -104,35 +104,37 @@ export default function AdminPatientsPage() {
                 <Button disabled={creating} className="bg-[#056DBA] hover:bg-[#045A99]" onClick={createPatient}>{creating ? "Adding…" : "Add"}</Button>
               </div>
             </div>
-            <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-              <Table>
+            <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="min-w-[760px]">
+              <Table className="text-xs sm:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Timezone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Email</TableHead>
+                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="hidden md:table-cell whitespace-nowrap">Timezone</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map(p => (
                     <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.full_name}</TableCell>
-                      <TableCell>{p.email || "—"}</TableCell>
-                      <TableCell>{p.phone || "—"}</TableCell>
-                      <TableCell>{p.timezone || "—"}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{p.full_name}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{p.email || "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{p.phone || "—"}</TableCell>
+                      <TableCell className="hidden md:table-cell">{p.timezone || "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <span className="px-2 py-1 rounded-md text-xs bg-blue-50 text-[#056DBA] border border-blue-100">{p.is_active ? "active" : "inactive"}</span>
                       </TableCell>
-                      <TableCell className="space-x-2">
+                      <TableCell className="space-x-2 whitespace-nowrap">
                         <Button size="sm" variant="outline" onClick={() => toggleActive(p.id, p.is_active)}>{p.is_active ? "Deactivate" : "Activate"}</Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           </CardContent>
         </Card>

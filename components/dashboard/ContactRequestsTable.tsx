@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Phone, Mail, MessageSquare, CheckCircle, XCircle, Calendar, Clock } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Phone, Mail, MessageSquare, CheckCircle, XCircle, Calendar as CalendarIcon, Clock } from "lucide-react"
 import { format } from "date-fns"
 
 interface ContactRequest {
@@ -46,6 +48,13 @@ export default function ContactRequestsTable({
   const [sessionDate, setSessionDate] = useState("")
   const [sessionTime, setSessionTime] = useState("")
   const [loading, setLoading] = useState<string | null>(null)
+
+  const timeOptions = Array.from({ length: (20 - 8) * 2 + 1 }, (_, i) => {
+    const totalMinutes = (8 * 60) + i * 30
+    const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+    const mm = String(totalMinutes % 60).padStart(2, '0')
+    return `${hh}:${mm}`
+  })
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -233,7 +242,7 @@ export default function ContactRequestsTable({
                       disabled={loading === request.id}
                       className="bg-purple-600 hover:bg-purple-700"
                     >
-                      <Calendar className="h-4 w-4 mr-1" />
+                      <CalendarIcon className="h-4 w-4 mr-1" />
                       Schedule Session
                     </Button>
                   )}
@@ -245,8 +254,8 @@ export default function ContactRequestsTable({
                       onClick={() => handleOpenReschedule(request)}
                       disabled={loading === request.id}
                     >
-                      <Calendar className="h-4 w-4 mr-1" />
-                      Reschedule
+                      <CalendarIcon className="h-4 w-4 mr-1" />
+                      Schedule new session
                     </Button>
                   )}
                 </div>
@@ -302,25 +311,35 @@ export default function ContactRequestsTable({
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <Label htmlFor="date">Session Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={sessionDate}
-                onChange={(e) => setSessionDate(e.target.value)}
-                className="mt-2"
-                min={new Date().toISOString().split('T')[0]}
-              />
+              <Label>Session Date</Label>
+              <div className="mt-2">
+                <Calendar
+                  mode="single"
+                  selected={sessionDate ? new Date(sessionDate) : undefined}
+                  onSelect={(d: any) => {
+                    if (!d) { setSessionDate(""); return }
+                    const date = new Date(d)
+                    const y = date.getFullYear()
+                    const m = String(date.getMonth() + 1).padStart(2, '0')
+                    const day = String(date.getDate()).padStart(2, '0')
+                    setSessionDate(`${y}-${m}-${day}`)
+                  }}
+                  disabled={{ before: new Date() }}
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="time">Session Time</Label>
-              <Input
-                id="time"
-                type="time"
-                value={sessionTime}
-                onChange={(e) => setSessionTime(e.target.value)}
-                className="mt-2"
-              />
+              <Select value={sessionTime} onValueChange={setSessionTime}>
+                <SelectTrigger id="time" className="mt-2">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -346,33 +365,43 @@ export default function ContactRequestsTable({
         </DialogContent>
       </Dialog>
 
-      {/* Reschedule Dialog */}
+      {/* Schedule New Session Dialog */}
       <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reschedule Session</DialogTitle>
+            <DialogTitle>Schedule new session</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div>
-              <Label htmlFor="reschedule-date">New Session Date</Label>
-              <Input
-                id="reschedule-date"
-                type="date"
-                value={sessionDate}
-                onChange={(e) => setSessionDate(e.target.value)}
-                className="mt-2"
-                min={new Date().toISOString().split('T')[0]}
-              />
+              <Label>Session Date</Label>
+              <div className="mt-2">
+                <Calendar
+                  mode="single"
+                  selected={sessionDate ? new Date(sessionDate) : undefined}
+                  onSelect={(d: any) => {
+                    if (!d) { setSessionDate(""); return }
+                    const date = new Date(d)
+                    const y = date.getFullYear()
+                    const m = String(date.getMonth() + 1).padStart(2, '0')
+                    const day = String(date.getDate()).padStart(2, '0')
+                    setSessionDate(`${y}-${m}-${day}`)
+                  }}
+                  disabled={{ before: new Date() }}
+                />
+              </div>
             </div>
             <div>
-              <Label htmlFor="reschedule-time">New Session Time</Label>
-              <Input
-                id="reschedule-time"
-                type="time"
-                value={sessionTime}
-                onChange={(e) => setSessionTime(e.target.value)}
-                className="mt-2"
-              />
+              <Label htmlFor="reschedule-time">Session Time</Label>
+              <Select value={sessionTime} onValueChange={setSessionTime}>
+                <SelectTrigger id="reschedule-time" className="mt-2">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -391,7 +420,7 @@ export default function ContactRequestsTable({
               onClick={handleConfirmReschedule}
               disabled={!sessionDate || !sessionTime || loading === selectedRequest?.id}
             >
-              Confirm Reschedule
+              Create session
             </Button>
           </DialogFooter>
         </DialogContent>

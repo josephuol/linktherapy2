@@ -7,6 +7,7 @@ import { Menu, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import logoHorizontal from "@/app/images/logo-horizontal.png"
+import logoHorizontalWhite from "@/app/images/logo-horizontal-white.png"
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -26,9 +27,9 @@ export function Navigation() {
   // Determine background and text colors based on page and scroll state
   const getNavStyles = () => {
     if (isHomePage) {
-      // Homepage: subtle gradient when not scrolled, white when scrolled
+      // Homepage: transparent when not scrolled, white when scrolled
       return {
-        background: isScrolled ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50" : "bg-gradient-to-b from-white/50 to-transparent backdrop-blur-sm",
+        background: isScrolled ? "bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50" : "bg-transparent",
         textColor: isScrolled ? "text-gray-700" : "text-white/90",
         logoColor: isScrolled ? "text-[#056DBA]" : "text-white",
         buttonStyle: isScrolled ? "bg-[#056DBA] hover:bg-[#045A99] text-white" : "bg-white text-[#056DBA] hover:bg-blue-50"
@@ -45,6 +46,7 @@ export function Navigation() {
   }
 
   const styles = getNavStyles()
+  const logoSrc = isHomePage && !isScrolled ? logoHorizontalWhite : logoHorizontal
 
   return (
     <nav
@@ -56,7 +58,7 @@ export function Navigation() {
           <Link href="/" className="flex items-center group">
             <div className="relative">
               <Image
-                src={logoHorizontal}
+                src={logoSrc}
                 alt="LinkTherapy"
                 className="h-8 w-auto transition-all duration-300 group-hover:scale-110"
                 priority
@@ -74,12 +76,6 @@ export function Navigation() {
               Home
             </Link>
             <Link
-              href="/blog"
-              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
-            >
-              Blog
-            </Link>
-            <Link
               href="/how-to-choose"
               className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
@@ -91,12 +87,20 @@ export function Navigation() {
             >
               For Therapists
             </Link>
-            <Button
-              className={`transition-all duration-300 hover:scale-105 ${styles.buttonStyle}`}
+            <Link
+              href="/faq"
+              className={`font-medium transition-all duration-300 hover:scale-105 ${styles.textColor} hover:text-[#056DBA]`}
             >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Get Started
-            </Button>
+              FAQ
+            </Link>
+            <Link href="/login">
+              <Button
+                className={`transition-all duration-300 hover:scale-105 ${styles.buttonStyle}`}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Login
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -120,13 +124,6 @@ export function Navigation() {
                 Home
               </Link>
               <Link
-                href="/blog"
-                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Blog
-              </Link>
-              <Link
                 href="/how-to-choose"
                 className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
@@ -140,13 +137,21 @@ export function Navigation() {
               >
                 For Therapists
               </Link>
-              <Button
-                className="bg-[#056DBA] hover:bg-[#045A99] text-white w-fit transition-all duration-300 hover:scale-105"
+              <Link
+                href="/faq"
+                className="text-gray-700 hover:text-[#056DBA] transition-colors font-medium px-2 py-1 rounded hover:bg-[#056DBA]/10"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Get Started
-              </Button>
+                FAQ
+              </Link>
+              <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                <Button
+                  className="bg-[#056DBA] hover:bg-[#045A99] text-white w-fit transition-all duration-300 hover:scale-105"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Login
+                </Button>
+              </Link>
             </div>
           </div>
         )}

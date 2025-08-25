@@ -2,8 +2,10 @@
 import React, { useEffect, useRef, useState,useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "@/hooks/use-sidebar";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+import { LockIcon } from "@/components/icons/index";
 import {
   BoxCubeIcon,
   CalenderIcon,
@@ -48,6 +50,8 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = supabaseBrowser();
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -236,9 +240,14 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+  const onSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }, [router, supabase]);
+
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-0 flex flex-col top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -282,6 +291,19 @@ const AppSidebar: React.FC = () => {
           </div>
         </nav>
         {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
+        <div className="mt-auto py-6">
+          <button
+            onClick={onSignOut}
+            className={`flex items-center gap-3 w-full px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-900/10 rounded-md transition ${
+              isExpanded || isHovered || isMobileOpen ? "justify-start" : "lg:justify-center"
+            }`}
+          >
+            <LockIcon className="w-4 h-4 fill-current" />
+            {(isExpanded || isHovered || isMobileOpen) && (
+              <span className="text-sm font-medium">Sign out</span>
+            )}
+          </button>
+        </div>
       </div>
     </aside>
   );

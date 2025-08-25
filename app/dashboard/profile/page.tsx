@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type Therapist = {
   user_id: string
@@ -25,6 +26,7 @@ type Therapist = {
   session_price_60_min: number | null
   session_price_30_min: number | null
   languages: string[] | null
+  interests?: string[] | null
 }
 
 export default function TherapistProfilePage() {
@@ -51,6 +53,7 @@ export default function TherapistProfilePage() {
     session_price_60_min: 0,
     session_price_30_min: 0,
     languages: [],
+    interests: [],
   })
 
   const languagesText = useMemo(
@@ -95,6 +98,7 @@ export default function TherapistProfilePage() {
           session_price_60_min: therapist.session_price_60_min ?? 0,
           session_price_30_min: therapist.session_price_30_min ?? 0,
           languages: therapist.languages ?? [],
+          interests: therapist.interests ?? [],
         })
       }
 
@@ -153,6 +157,12 @@ export default function TherapistProfilePage() {
     if (!userId) return
     setSaving(true)
     try {
+      // Enforce age_range selection
+      if (!form.age_range) {
+        toast({ title: "Age range required", description: "Please select your age range.", variant: "destructive" })
+        setSaving(false)
+        return
+      }
       const updatePayload = {
         full_name: form.full_name || null,
         title: form.title || null,
@@ -166,6 +176,7 @@ export default function TherapistProfilePage() {
         session_price_60_min: form.session_price_60_min ?? null,
         session_price_30_min: form.session_price_30_min ?? null,
         languages: form.languages && form.languages.length > 0 ? form.languages : [],
+        interests: form.interests && form.interests.length > 0 ? form.interests : [],
         updated_at: new Date().toISOString(),
       }
 
@@ -264,13 +275,69 @@ export default function TherapistProfilePage() {
                 <Label htmlFor="bio_long">Long Bio</Label>
                 <Textarea id="bio_long" value={form.bio_long ?? ""} onChange={handleChange} rows={5} />
               </div>
+              <div className="md:col-span-2">
+                <Label className="mb-1 block">Interests</Label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(form.interests || []).map((it, idx) => (
+                    <span key={`${it}-${idx}`} className="inline-flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 rounded-full px-3 py-1 text-sm">
+                      {it}
+                      <button type="button" aria-label="Remove interest" onClick={() => setForm((prev) => ({ ...prev, interests: (prev.interests || []).filter((_, i) => i !== idx) }))} className="text-green-700/80 hover:text-green-800">×</button>
+                    </span>
+                  ))}
+                </div>
+                <Input
+                  placeholder="Type an interest and press Enter"
+                  onKeyDown={(e: any) => {
+                    const target = e.target as HTMLInputElement
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault()
+                      const val = target.value.trim()
+                      if (val && !(form.interests || []).includes(val)) {
+                        setForm((prev) => ({ ...prev, interests: [...(prev.interests || []), val] }))
+                      }
+                      target.value = ''
+                    }
+                    if (e.key === 'Backspace' && target.value === '' && (form.interests || []).length > 0) {
+                      setForm((prev) => ({ ...prev, interests: (prev.interests || []).slice(0, -1) }))
+                    }
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">Examples: Anxiety, CBT, Teens, Trauma</p>
+              </div>
               <div>
                 <Label htmlFor="religion">Religion</Label>
-                <Input id="religion" value={form.religion ?? ""} onChange={handleChange} />
+                <Select
+                  value={form.religion ?? ""}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, religion: value || null }))}
+                >
+                  <SelectTrigger id="religion">
+                    <SelectValue placeholder="Select religion" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Christian">Christian</SelectItem>
+                    <SelectItem value="Druze">Druze</SelectItem>
+                    <SelectItem value="Sunni">Sunni</SelectItem>
+                    <SelectItem value="Shiite">Shiite</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="age_range">Age Range</Label>
-                <Input id="age_range" value={form.age_range ?? ""} onChange={handleChange} placeholder="e.g. 25-40" />
+                <Select
+                  value={form.age_range ?? ""}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, age_range: value }))}
+                >
+                  <SelectTrigger id="age_range">
+                    <SelectValue placeholder="Select age range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="21-28">21-28</SelectItem>
+                    <SelectItem value="29-36">29-36</SelectItem>
+                    <SelectItem value="37-45">37-45</SelectItem>
+                    <SelectItem value="46-55">46-55</SelectItem>
+                    <SelectItem value="55+">55+</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="years_of_experience">Years of Experience</Label>

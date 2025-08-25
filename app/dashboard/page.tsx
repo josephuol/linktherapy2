@@ -9,6 +9,11 @@ import { TherapistMetrics } from "@/components/dashboard/TherapistMetrics"
 import ContactRequestsTable from "@/components/dashboard/ContactRequestsTable"
 import PaymentNotifications from "@/components/dashboard/PaymentNotifications"
 import { toast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 interface ContactRequest {
   id: string;
@@ -61,6 +66,18 @@ interface PaymentStatus {
   };
 }
 
+interface SessionRow {
+  id: string;
+  therapist_id: string;
+  client_name: string | null;
+  client_email: string | null;
+  session_date: string;
+  duration_minutes: number | null;
+  price: number | null;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | string;
+  rescheduled_from: string | null;
+}
+
 export default function TherapistDashboardPage() {
   const supabase = supabaseBrowser()
   const router = useRouter()
@@ -70,6 +87,18 @@ export default function TherapistDashboardPage() {
   const [metrics, setMetrics] = useState<TherapistMetricsData | null>(null)
   const [notifications, setNotifications] = useState<PaymentNotification[]>([])
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null)
+  const [upcomingSessions, setUpcomingSessions] = useState<SessionRow[]>([])
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false)
+  const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null)
+  const [newSessionDate, setNewSessionDate] = useState("")
+  const [newSessionTime, setNewSessionTime] = useState("")
+  const timeOptions = Array.from({ length: (20 - 8) * 2 + 1 }, (_, i) => {
+    const totalMinutes = (8 * 60) + i * 30
+    const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+    const mm = String(totalMinutes % 60).padStart(2, '0')
+    return `${hh}:${mm}`
+  })
+  const [rescheduleReason, setRescheduleReason] = useState("")
 
   useEffect(() => {
     const init = async () => {
@@ -78,11 +107,8 @@ export default function TherapistDashboardPage() {
         router.replace("/login")
         return
       }
-      
       await loadData(session.user.id)
       setLoading(false)
-
-      // Set up real-time subscriptions for automatic updates
       const contactRequestsChannel = supabase
         .channel('contact_requests_changes')
         .on(
@@ -93,13 +119,9 @@ export default function TherapistDashboardPage() {
             table: 'contact_requests',
             filter: `therapist_id=eq.${session.user.id}`
           },
-          () => {
-            // Refresh data when contact requests change
-            loadData(session.user.id)
-          }
+          () => { loadData(session.user.id) }
         )
         .subscribe()
-
       const sessionsChannel = supabase
         .channel('sessions_changes')
         .on(
@@ -110,13 +132,9 @@ export default function TherapistDashboardPage() {
             table: 'sessions',
             filter: `therapist_id=eq.${session.user.id}`
           },
-          () => {
-            // Refresh data when sessions change
-            loadData(session.user.id)
-          }
+          () => { loadData(session.user.id) }
         )
         .subscribe()
-
       const metricsChannel = supabase
         .channel('metrics_changes')
         .on(
@@ -127,13 +145,9 @@ export default function TherapistDashboardPage() {
             table: 'therapist_metrics',
             filter: `therapist_id=eq.${session.user.id}`
           },
-          () => {
-            // Refresh data when metrics change
-            loadData(session.user.id)
-          }
+          () => { loadData(session.user.id) }
         )
         .subscribe()
-
       const notificationsChannel = supabase
         .channel('notifications_changes')
         .on(
@@ -144,19 +158,10 @@ export default function TherapistDashboardPage() {
             table: 'therapist_notifications',
             filter: `therapist_id=eq.${session.user.id}`
           },
-          () => {
-            // Refresh data when notifications change
-            loadData(session.user.id)
-          }
+          () => { loadData(session.user.id) }
         )
         .subscribe()
-
-      // Set up periodic refresh every 30 seconds for additional data freshness
-      const refreshInterval = setInterval(() => {
-        loadData(session.user.id)
-      }, 30000)
-
-      // Cleanup subscriptions on unmount
+      const refreshInterval = setInterval(() => { loadData(session.user.id) }, 30000)
       return () => {
         supabase.removeChannel(contactRequestsChannel)
         supabase.removeChannel(sessionsChannel)
@@ -165,31 +170,14 @@ export default function TherapistDashboardPage() {
         clearInterval(refreshInterval)
       }
     }
-    
     const cleanup = init()
-    return () => {
-      cleanup.then(cleanupFn => {
-        if (cleanupFn) cleanupFn()
-      })
-    }
+    return () => { cleanup.then(fn => { if (fn) fn() }) }
   }, [])
 
   const loadData = async (userId: string) => {
     try {
-      // Load profile
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .single()
-      
-      // Load therapist data
-      const { data: therapistData } = await supabase
-        .from("therapists")
-        .select("*")
-        .eq("user_id", userId)
-        .single()
-
+      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).single()
+      const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).single()
       if (therapistData) {
         setProfile({
           user_id: userId,
@@ -200,45 +188,14 @@ export default function TherapistDashboardPage() {
           churn_rate_monthly: therapistData.churn_rate_monthly || 0
         })
       }
-
-      // Load contact requests
-      const { data: cr } = await supabase
-        .from("contact_requests")
-        .select("*")
-        .eq("therapist_id", userId)
-        .order("created_at", { ascending: false })
+      const { data: cr } = await supabase.from("contact_requests").select("*").eq("therapist_id", userId).order("created_at", { ascending: false })
       setRequests(cr || [])
-
-      // Load metrics data
       const currentMonth = new Date().toISOString().slice(0, 7) + "-01"
-      const { data: metricsData } = await supabase
-        .from("therapist_metrics")
-        .select("*")
-        .eq("therapist_id", userId)
-        .eq("month_year", currentMonth)
-        .single()
-
-      // Calculate bimonthly sessions for commission
-      const twoMonthsAgo = new Date()
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
-      
-      const { count: bimonthlySessionCount } = await supabase
-        .from("sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("therapist_id", userId)
-        .gte("created_at", twoMonthsAgo.toISOString())
-
-      // Check for recent ranking bonuses (green dot)
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      
-      const { data: recentBonuses } = await supabase
-        .from("therapist_ranking_history")
-        .select("*")
-        .eq("therapist_id", userId)
-        .eq("change_type", "payment_bonus")
-        .gte("created_at", thirtyDaysAgo.toISOString())
-
+      const { data: metricsData } = await supabase.from("therapist_metrics").select("*").eq("therapist_id", userId).eq("month_year", currentMonth).single()
+      const twoMonthsAgo = new Date(); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+      const { count: bimonthlySessionCount } = await supabase.from("sessions").select("*", { count: "exact", head: true }).eq("therapist_id", userId).gte("created_at", twoMonthsAgo.toISOString())
+      const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const { data: recentBonuses } = await supabase.from("therapist_ranking_history").select("*").eq("therapist_id", userId).eq("change_type", "payment_bonus").gte("created_at", thirtyDaysAgo.toISOString())
       setMetrics({
         averageResponseTime: metricsData?.average_response_time_hours || 0,
         churnRate: metricsData?.churn_rate_monthly || therapistData?.churn_rate_monthly || 0,
@@ -247,237 +204,110 @@ export default function TherapistDashboardPage() {
         rankingPoints: therapistData?.ranking_points || 50,
         hasGreenDot: (recentBonuses && recentBonuses.length > 0) || false
       })
-
-      // Load notifications
-      const { data: notificationData } = await supabase
-        .from("therapist_notifications")
-        .select("*")
-        .eq("therapist_id", userId)
-        .eq("is_read", false)
-        .order("created_at", { ascending: false })
-        .limit(10)
+      const { data: notificationData } = await supabase.from("therapist_notifications").select("*").eq("therapist_id", userId).eq("is_read", false).order("created_at", { ascending: false }).limit(10)
       setNotifications(notificationData || [])
-
-      // Load payment status
-      const { data: pendingPayments } = await supabase
-        .from("therapist_payments")
-        .select("*")
-        .eq("therapist_id", userId)
-        .in("status", ["pending", "overdue"])
-        .order("payment_due_date", { ascending: true })
-
+      const { data: pendingPayments } = await supabase.from("therapist_payments").select("*").eq("therapist_id", userId).in("status", ["pending", "overdue"]).order("payment_due_date", { ascending: true })
       if (pendingPayments && pendingPayments.length > 0) {
         const nextPayment = pendingPayments[0]
         const dueDate = new Date(nextPayment.payment_due_date)
         const now = new Date()
         const daysOverdue = Math.max(0, Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
-
-        setPaymentStatus({
-          hasPendingPayments: true,
-          daysOverdue,
-          nextPaymentDue: nextPayment.payment_due_date,
-          suspensionRisk: daysOverdue > 3
-        })
+        setPaymentStatus({ hasPendingPayments: true, daysOverdue, nextPaymentDue: nextPayment.payment_due_date, suspensionRisk: daysOverdue > 3 })
       } else {
-        setPaymentStatus({
-          hasPendingPayments: false,
-          daysOverdue: 0,
-          nextPaymentDue: "",
-          suspensionRisk: false
-        })
+        setPaymentStatus({ hasPendingPayments: false, daysOverdue: 0, nextPaymentDue: "", suspensionRisk: false })
       }
-
+      const nowIso = new Date().toISOString()
+      const { data: futureSessions } = await supabase
+        .from("sessions")
+        .select("id, therapist_id, client_name, client_email, session_date, duration_minutes, price, status, rescheduled_from")
+        .eq("therapist_id", userId)
+        .eq("status", "scheduled")
+        .gte("session_date", nowIso)
+        .order("session_date", { ascending: true })
+      setUpcomingSessions((futureSessions as any) || [])
     } catch (error) {
       console.error("Error loading data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to load dashboard data", variant: "destructive" })
     }
   }
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      const { error } = await supabase
-        .from("contact_requests")
-        .update({ status: "accepted" })
-        .eq("id", requestId)
-
+      const { error } = await supabase.from("contact_requests").update({ status: "accepted" }).eq("id", requestId)
       if (error) throw error
-
-      // Refresh data
       const session = await supabase.auth.getSession()
-      if (session.data.session) {
-        await loadData(session.data.session.user.id)
-      }
-
-      toast({
-        title: "Success",
-        description: "Client request accepted successfully",
-        variant: "default"
-      })
+      if (session.data.session) { await loadData(session.data.session.user.id) }
+      toast({ title: "Success", description: "Client request accepted successfully", variant: "default" })
     } catch (error) {
       console.error("Error accepting request:", error)
-      toast({
-        title: "Error",
-        description: "Failed to accept request",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to accept request", variant: "destructive" })
     }
   }
 
   const handleRejectRequest = async (requestId: string, reason: string) => {
     try {
-      const { error } = await supabase
-        .from("contact_requests")
-        .update({ 
-          status: "rejected",
-          rejection_reason: reason
-        })
-        .eq("id", requestId)
-
+      const { error } = await supabase.from("contact_requests").update({ status: "rejected", rejection_reason: reason }).eq("id", requestId)
       if (error) throw error
-
-      // Refresh data
       const session = await supabase.auth.getSession()
-      if (session.data.session) {
-        await loadData(session.data.session.user.id)
-      }
-
-      toast({
-        title: "Request Rejected",
-        description: "Client request has been rejected",
-        variant: "default"
-      })
+      if (session.data.session) { await loadData(session.data.session.user.id) }
+      toast({ title: "Request Rejected", description: "Client request has been rejected", variant: "default" })
     } catch (error) {
       console.error("Error rejecting request:", error)
-      toast({
-        title: "Error",
-        description: "Failed to reject request",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to reject request", variant: "destructive" })
     }
   }
 
   const handleScheduleSession = async (requestId: string, sessionIsoDateTime: string) => {
     try {
       const request = requests.find(r => r.id === requestId)
-      if (!request) {
-        throw new Error("Request not found")
-      }
-
-      if (!profile?.user_id) {
-        throw new Error("User profile not loaded")
-      }
-
-      // Update request status to scheduled
-      const { error: updateError } = await supabase
-        .from("contact_requests")
-        .update({ status: "scheduled" })
-        .eq("id", requestId)
-
-      if (updateError) {
-        console.error("Update error:", updateError)
-        throw new Error(`Failed to update request: ${updateError.message}`)
-      }
-
-      // Create session record
-      const { error: sessionError, data: sessionData } = await supabase
-        .from("sessions")
-        .insert({
-          therapist_id: profile.user_id,
-          client_email: request.client_email,
-          client_name: request.client_name,
-          session_date: sessionIsoDateTime,
-          duration_minutes: 60,
-          price: 100,
-          status: "scheduled"
-        })
-        .select()
-
-      if (sessionError) {
-        console.error("Session error:", sessionError)
-        throw new Error(`Failed to create session: ${sessionError.message}`)
-      }
-
-      console.log("Session created successfully:", sessionData)
-
-      // Force refresh data to update stats
-      await loadData(profile.user_id)
-
-      toast({
-        title: "Session Scheduled",
-        description: "Session has been created for this client. Your metrics will update shortly.",
-        variant: "default"
+      if (!request) { throw new Error("Request not found") }
+      if (!profile?.user_id) { throw new Error("User profile not loaded") }
+      const { error: updateError } = await supabase.from("contact_requests").update({ status: "scheduled" }).eq("id", requestId)
+      if (updateError) { throw new Error(`Failed to update request: ${updateError.message}`) }
+      const { error: sessionError } = await supabase.from("sessions").insert({
+        therapist_id: profile.user_id,
+        client_email: request.client_email,
+        client_name: request.client_name,
+        session_date: sessionIsoDateTime,
+        duration_minutes: 60,
+        price: 100,
+        status: "scheduled"
       })
+      if (sessionError) { throw new Error(`Failed to create session: ${sessionError.message}`) }
+      await loadData(profile.user_id)
+      toast({ title: "Session Scheduled", description: "Session has been created for this client. Your metrics will update shortly.", variant: "default" })
     } catch (error: any) {
       console.error("Error scheduling session:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to schedule session",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: error.message || "Failed to schedule session", variant: "destructive" })
     }
   }
 
   const handleRescheduleSession = async (requestId: string, sessionIsoDateTime: string) => {
     try {
       const request = requests.find(r => r.id === requestId)
-      if (!request) {
-        throw new Error("Request not found")
-      }
-
-      // Create a new session record for the reschedule
-      const { error: sessionError, data: sessionData } = await supabase
-        .from("sessions")
-        .insert({
-          therapist_id: profile?.user_id,
-          client_email: request.client_email,
-          client_name: request.client_name,
-          session_date: sessionIsoDateTime,
-          duration_minutes: 60,
-          price: 100,
-          status: "scheduled"
-        })
-        .select()
-
-      if (sessionError) {
-        console.error("Session error:", sessionError)
-        throw new Error(`Failed to create new session: ${sessionError.message}`)
-      }
-
-      console.log("Reschedule session created successfully:", sessionData)
-
-      // Force refresh data to update stats
-      if (profile?.user_id) {
-        await loadData(profile.user_id)
-      }
-
-      toast({
-        title: "Session Rescheduled",
-        description: "A new session has been scheduled for this client.",
-        variant: "default"
+      if (!request) { throw new Error("Request not found") }
+      const { error: sessionError } = await supabase.from("sessions").insert({
+        therapist_id: profile?.user_id,
+        client_email: request.client_email,
+        client_name: request.client_name,
+        session_date: sessionIsoDateTime,
+        duration_minutes: 60,
+        price: 100,
+        status: "scheduled"
       })
+      if (sessionError) { throw new Error(`Failed to create new session: ${sessionError.message}`) }
+      if (profile?.user_id) { await loadData(profile.user_id) }
+      toast({ title: "Session Rescheduled", description: "A new session has been scheduled for this client.", variant: "default" })
     } catch (error: any) {
       console.error("Error rescheduling session:", error)
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reschedule session",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: error.message || "Failed to reschedule session", variant: "destructive" })
     }
   }
 
   const handleMarkNotificationAsRead = async (notificationId: string) => {
     try {
-      const { error } = await supabase
-        .from("therapist_notifications")
-        .update({ is_read: true })
-        .eq("id", notificationId)
-
+      const { error } = await supabase.from("therapist_notifications").update({ is_read: true }).eq("id", notificationId)
       if (error) throw error
-
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
     } catch (error) {
       console.error("Error marking notification as read:", error)
@@ -486,17 +316,54 @@ export default function TherapistDashboardPage() {
 
   const handleDismissAllNotifications = async () => {
     try {
-      const { error } = await supabase
-        .from("therapist_notifications")
-        .update({ is_read: true })
-        .eq("therapist_id", profile?.user_id)
-        .eq("is_read", false)
-
+      const { error } = await supabase.from("therapist_notifications").update({ is_read: true }).eq("therapist_id", profile?.user_id).eq("is_read", false)
       if (error) throw error
-
       setNotifications([])
     } catch (error) {
       console.error("Error dismissing notifications:", error)
+    }
+  }
+
+  const openRescheduleForSession = (s: SessionRow) => {
+    setSelectedSession(s)
+    setNewSessionDate("")
+    setNewSessionTime("")
+    setRescheduleReason("")
+    setRescheduleDialogOpen(true)
+  }
+
+  const handleConfirmRescheduleExisting = async () => {
+    if (!selectedSession || !profile?.user_id) return
+    try {
+      const originalDate = new Date(selectedSession.session_date)
+      if (selectedSession.status !== 'scheduled' || originalDate.getTime() <= Date.now()) { throw new Error("Only upcoming scheduled sessions can be rescheduled") }
+      const newIso = new Date(`${newSessionDate}T${newSessionTime}:00`).toISOString()
+      const { data: original, error: fetchErr } = await supabase.from("sessions").select("*").eq("id", selectedSession.id).single()
+      if (fetchErr || !original) throw new Error(fetchErr?.message || "Original session not found")
+      const { error: updateErr } = await supabase.from("sessions").update({ status: 'rescheduled' }).eq("id", selectedSession.id)
+      if (updateErr) throw new Error(updateErr.message)
+      const { error: insertErr } = await supabase.from("sessions").insert({
+        therapist_id: profile.user_id,
+        client_email: original.client_email,
+        client_name: original.client_name,
+        session_date: newIso,
+        duration_minutes: original.duration_minutes || 60,
+        price: original.price || 100,
+        status: 'scheduled',
+        rescheduled_from: selectedSession.id,
+        reschedule_reason: rescheduleReason || null,
+        rescheduled_by: profile.user_id,
+      })
+      if (insertErr) throw new Error(insertErr.message)
+      await loadData(profile.user_id)
+      setRescheduleDialogOpen(false)
+      setSelectedSession(null)
+      setNewSessionDate("")
+      setNewSessionTime("")
+      setRescheduleReason("")
+      toast({ title: "Session rescheduled", description: "New session created and original marked as rescheduled" })
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to reschedule", variant: "destructive" })
     }
   }
 
@@ -572,6 +439,30 @@ export default function TherapistDashboardPage() {
               </CardContent>
             </Card>
 
+            {/* Upcoming Sessions */}
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <div className="text-lg font-semibold text-gray-900">Upcoming Sessions</div>
+              </CardHeader>
+              <CardContent>
+                {upcomingSessions.length === 0 ? (
+                  <div className="text-sm text-gray-600">No upcoming sessions</div>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingSessions.map(s => (
+                      <div key={s.id} className="flex items-center justify-between border rounded-md p-3">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">{s.client_name || 'Session'}</div>
+                          <div className="text-gray-600">{new Date(s.session_date).toLocaleString()}</div>
+                        </div>
+                        <Button variant="outline" onClick={() => openRescheduleForSession(s)}>Reschedule</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Contact Requests Table */}
             <div className="lg:col-span-3">
               <ContactRequestsTable
@@ -584,7 +475,88 @@ export default function TherapistDashboardPage() {
             </div>
           </div>
         </div>
+        <RescheduleDialogWrapper
+          open={rescheduleDialogOpen}
+          onOpenChange={setRescheduleDialogOpen}
+          newSessionDate={newSessionDate}
+          setNewSessionDate={setNewSessionDate}
+          newSessionTime={newSessionTime}
+          setNewSessionTime={setNewSessionTime}
+          rescheduleReason={rescheduleReason}
+          setRescheduleReason={setRescheduleReason}
+          onConfirm={handleConfirmRescheduleExisting}
+        />
     </div>
+  )
+}
+
+// Reschedule existing session dialog
+export function RescheduleDialogWrapper({
+  open,
+  onOpenChange,
+  newSessionDate,
+  setNewSessionDate,
+  newSessionTime,
+  setNewSessionTime,
+  rescheduleReason,
+  setRescheduleReason,
+  onConfirm
+}: any) {
+  const timeOptions = Array.from({ length: (20 - 8) * 2 + 1 }, (_, i) => {
+    const totalMinutes = (8 * 60) + i * 30
+    const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
+    const mm = String(totalMinutes % 60).padStart(2, '0')
+    return `${hh}:${mm}`
+  })
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reschedule Session</DialogTitle>
+        </DialogHeader>
+        <div className="py-4 space-y-4">
+          <div>
+            <Label>New Date</Label>
+            <div className="mt-2">
+              <Calendar
+                mode="single"
+                selected={newSessionDate ? new Date(newSessionDate) : undefined}
+                onSelect={(d: any) => {
+                  if (!d) { setNewSessionDate(""); return }
+                  const date = new Date(d)
+                  const y = date.getFullYear()
+                  const m = String(date.getMonth() + 1).padStart(2, '0')
+                  const day = String(date.getDate()).padStart(2, '0')
+                  setNewSessionDate(`${y}-${m}-${day}`)
+                }}
+                disabled={{ before: new Date() }}
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="new-time">New Time</Label>
+            <Select value={newSessionTime} onValueChange={setNewSessionTime}>
+              <SelectTrigger id="new-time" className="mt-2">
+                <SelectValue placeholder="Select time" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeOptions.map((t: string) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="reason">Reason (optional)</Label>
+            <Input id="reason" value={rescheduleReason} onChange={(e: any) => setRescheduleReason(e.target.value)} className="mt-2" placeholder="Provide a reason" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button disabled={!newSessionDate || !newSessionTime} onClick={onConfirm}>Confirm</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -21,7 +21,7 @@ export default function AdminCalendarPage() {
   const router = useRouter()
   const [therapists, setTherapists] = useState<Therapist[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
-  const [selectedTherapistId, setSelectedTherapistId] = useState<string>("")
+  const [selectedTherapistId, setSelectedTherapistId] = useState<string>("all")
   const [events, setEvents] = useState<EventInput[]>([])
   const calendarRef = useRef<FullCalendar>(null)
   const [loading, setLoading] = useState(true)
@@ -57,25 +57,47 @@ export default function AdminCalendarPage() {
   const loadEvents = async (therapistId?: string) => {
     const query = supabase.from("sessions").select("id, therapist_id, patient_id, client_name, client_email, client_phone, session_date, duration_minutes")
       .order("session_date", { ascending: true })
-    const { data, error } = therapistId ? await query.eq("therapist_id", therapistId) : await query
+    const effectiveId = therapistId && therapistId !== 'all' ? therapistId : undefined
+    const { data, error } = effectiveId ? await query.eq("therapist_id", effectiveId) : await query
     if (error) return
-    const mapped = (data || []).map(s => ({
+    const thresholdMs = 48 * 60 * 60 * 1000
+    const pairToSessions = new Map<string, { id: string; date: number }[]>()
+    ;(data || []).forEach((s: any) => {
+      const therapistKey = String(s.therapist_id || '')
+      const pairKey = `${therapistKey}|${s.patient_id ? `p:${s.patient_id}` : `e:${s.client_email || ''}`}`
+      const arr = pairToSessions.get(pairKey) || []
+      arr.push({ id: s.id, date: new Date(s.session_date).getTime() })
+      pairToSessions.set(pairKey, arr)
+    })
+    const tooCloseIds = new Set<string>()
+    pairToSessions.forEach((arr) => {
+      arr.sort((a, b) => a.date - b.date)
+      for (let i = 1; i < arr.length; i++) {
+        const diff = arr[i].date - arr[i - 1].date
+        if (diff < thresholdMs) {
+          tooCloseIds.add(arr[i - 1].id)
+          tooCloseIds.add(arr[i].id)
+        }
+      }
+    })
+    const mapped = (data || []).map((s: any) => ({
       id: s.id,
       title: s.client_name || "Session",
       start: s.session_date,
-      end: new Date(new Date(s.session_date).getTime() + (s.duration_minutes || 60) * 60000).toISOString()
+      end: new Date(new Date(s.session_date).getTime() + (s.duration_minutes || 60) * 60000).toISOString(),
+      extendedProps: { isTooClose: tooCloseIds.has(s.id) }
     }))
     setEvents(mapped)
   }
 
   useEffect(() => { loadBootstrap().then(() => loadEvents()) }, [])
-  useEffect(() => { loadEvents(selectedTherapistId || undefined) }, [selectedTherapistId])
+  useEffect(() => { loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined) }, [selectedTherapistId])
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     setEditingEventId(null)
     setForm(f => ({
       ...f,
-      therapist_id: selectedTherapistId || therapists[0]?.user_id || "",
+      therapist_id: (selectedTherapistId && selectedTherapistId !== 'all' ? selectedTherapistId : therapists[0]?.user_id || ""),
       patient_id: "",
       client_name: "",
       client_email: "",
@@ -121,14 +143,14 @@ export default function AdminCalendarPage() {
       await supabase.from("sessions").insert(payload)
     }
     setDialogOpen(false)
-    await loadEvents(selectedTherapistId || undefined)
+    await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
   }
 
   const deleteSession = async () => {
     if (!editingEventId) return
     await supabase.from("sessions").delete().eq("id", editingEventId)
     setDialogOpen(false)
-    await loadEvents(selectedTherapistId || undefined)
+    await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
@@ -141,11 +163,11 @@ export default function AdminCalendarPage() {
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xl font-bold text-gray-900">Schedule sessions</div>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center w-full sm:w-auto">
                 <Select value={selectedTherapistId} onValueChange={setSelectedTherapistId}>
-                  <SelectTrigger className="w-[260px]"><SelectValue placeholder="Filter by therapist (optional)" /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[260px]"><SelectValue placeholder="Filter by therapist (optional)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All therapists</SelectItem>
+                    <SelectItem value="all">All therapists</SelectItem>
                     {therapists.map(t => (<SelectItem key={t.user_id} value={t.user_id}>{t.full_name}</SelectItem>))}
                   </SelectContent>
                 </Select>
@@ -153,13 +175,22 @@ export default function AdminCalendarPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+            <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white">
               <FullCalendar
                 ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="timeGridWeek"
                 headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }}
                 events={events}
+                eventClassNames={(arg) => (arg.event.extendedProps as any)?.isTooClose ? ["bg-orange-100", "border-orange-500", "text-orange-900"] : []}
+                eventDidMount={(info) => {
+                  if ((info.event.extendedProps as any)?.isTooClose) {
+                    info.el.style.backgroundColor = '#FFEDD5'
+                    info.el.style.borderColor = '#F97316'
+                    info.el.style.color = '#7C2D12'
+                    info.el.setAttribute('title', 'Sessions for this client are < 48h apart')
+                  }
+                }}
                 selectable
                 selectMirror
                 editable
@@ -170,7 +201,7 @@ export default function AdminCalendarPage() {
                   const start = info.event.start ? info.event.start.toISOString() : null
                   if (!start) return
                   await supabase.from("sessions").update({ session_date: start }).eq("id", id)
-                  await loadEvents(selectedTherapistId || undefined)
+                  await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
                 }}
               />
             </div>

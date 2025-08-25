@@ -6,6 +6,7 @@ import { Navigation } from "@/components/navigation"
 export function ConditionalNavigation() {
   const pathname = usePathname()
   if (pathname?.startsWith("/dashboard")) return null
+  if (pathname?.startsWith("/admin")) return null
   return <Navigation />
 }
 

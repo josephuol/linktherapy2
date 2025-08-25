@@ -17,6 +17,9 @@ interface Therapist {
   image: string
   specialty: string
   location: string
+  locations?: string[]
+  gender?: string
+  lgbtq?: boolean
   experience: number
   price: number
   rating: number
@@ -177,12 +180,21 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-[#056DBA]" />
-                    {therapist.location}
+                    {therapist.location || (therapist.locations && therapist.locations.length ? therapist.locations.join(", ") : "—")}
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-[#056DBA]" />
                     {therapist.responseTime}
                   </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {therapist.gender ? (
+                    <Badge variant="outline" className="border-[#056DBA]/30 text-[#056DBA]">Gender: {String(therapist.gender)}</Badge>
+                  ) : null}
+                  {typeof therapist.lgbtq === 'boolean' ? (
+                    <Badge variant="outline" className="border-green-300 text-green-700">LGBTQ+ friendly: {therapist.lgbtq ? 'Yes' : 'No'}</Badge>
+                  ) : null}
                 </div>
               </div>
             </div>
