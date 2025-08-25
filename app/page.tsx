@@ -1,8 +1,6 @@
 import TherapistDirectoryLoader from "@/components/therapist-directory-loader"
 import { WhatsAppButton } from "@/components/whatsapp-button"
-import dynamic from "next/dynamic"
-
-const AuthHashRedirect = dynamic(() => import("../components/auth-hash-redirect"), { ssr: false })
+import AuthHashRedirect from "../components/auth-hash-redirect"
 
 export default function HomePage() {
   return (
