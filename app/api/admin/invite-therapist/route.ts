@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   })
   if (createErr) {
     // If already exists, try resending invite
-    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/onboarding/therapist`
+    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
     try {
       await supabase.auth.admin.inviteUserByEmail(parsed.data.email, { redirectTo })
       return NextResponse.json({ ok: true, resent: true })
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   if (thErr) return NextResponse.json({ error: thErr.message }, { status: 400 })
 
   // Send invite email with redirect to onboarding
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/onboarding/therapist`
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
   await supabase.auth.admin.inviteUserByEmail(parsed.data.email, { redirectTo })
 
   return NextResponse.json({ ok: true, user_id: newUser.id })

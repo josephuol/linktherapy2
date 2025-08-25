@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     if (prof) {
       // If a profile exists, attempt to resend invite email
       try {
-        const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/onboarding/therapist`
+        const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
         await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
         await supabase.from("admin_audit_logs").insert({ action: "invite.resend", target_email: email, details: { method: "bulk" } })
         results.push({ email, status: "ok", message: "Resent invite" })
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     // Send invite email via Supabase built-in with redirect to onboarding
-    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/onboarding/therapist`
+    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
     await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
 
     // Audit log
