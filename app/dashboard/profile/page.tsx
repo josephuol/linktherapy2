@@ -23,8 +23,7 @@ type Therapist = {
   age_range: string | null
   years_of_experience: number | null
   lgbtq_friendly: boolean | null
-  session_price_60_min: number | null
-  session_price_30_min: number | null
+  session_price_45_min: number | null
   languages: string[] | null
   interests?: string[] | null
 }
@@ -38,6 +37,9 @@ export default function TherapistProfilePage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [availableCities, setAvailableCities] = useState<string[]>([])
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([])
+  const [locationInput, setLocationInput] = useState<string>("")
 
   const [form, setForm] = useState<Therapist>({
     user_id: "",
@@ -50,8 +52,7 @@ export default function TherapistProfilePage() {
     age_range: "",
     years_of_experience: 0,
     lgbtq_friendly: false,
-    session_price_60_min: 0,
-    session_price_30_min: 0,
+    session_price_45_min: 0,
     languages: [],
     interests: [],
   })
@@ -95,11 +96,26 @@ export default function TherapistProfilePage() {
           age_range: therapist.age_range ?? "",
           years_of_experience: therapist.years_of_experience ?? 0,
           lgbtq_friendly: therapist.lgbtq_friendly ?? false,
-          session_price_60_min: therapist.session_price_60_min ?? 0,
-          session_price_30_min: therapist.session_price_30_min ?? 0,
+          session_price_45_min: (therapist as any).session_price_45_min ?? 0,
           languages: therapist.languages ?? [],
           interests: therapist.interests ?? [],
         })
+
+        // Load existing locations for therapist
+        const { data: links } = await supabase
+          .from("therapist_locations")
+          .select("location_id")
+          .eq("therapist_id", session.user.id)
+        const locationIds = (links || []).map((r: any) => r.location_id).filter(Boolean)
+        if (locationIds.length > 0) {
+          const { data: locs } = await supabase
+            .from("locations")
+            .select("id,name")
+            .in("id", locationIds)
+          setSelectedLocations((locs || []).map((l: any) => l.name).filter(Boolean))
+        } else {
+          setSelectedLocations([])
+        }
       }
 
       setLoading(false)
@@ -107,6 +123,24 @@ export default function TherapistProfilePage() {
 
     init()
   }, [])
+
+  // Load available cities for selection (with fallback)
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from("site_content")
+          .select("content")
+          .eq("key", "match.quiz")
+          .maybeSingle()
+        const cities = (data as any)?.content?.options?.locations?.cities
+        if (Array.isArray(cities) && cities.length) setAvailableCities(cities)
+        else setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+      } catch {
+        setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+      }
+    })()
+  }, [supabase])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -173,8 +207,7 @@ export default function TherapistProfilePage() {
         age_range: form.age_range || null,
         years_of_experience: form.years_of_experience ?? null,
         lgbtq_friendly: !!form.lgbtq_friendly,
-        session_price_60_min: form.session_price_60_min ?? null,
-        session_price_30_min: form.session_price_30_min ?? null,
+        session_price_45_min: (form as any).session_price_45_min ?? null,
         languages: form.languages && form.languages.length > 0 ? form.languages : [],
         interests: form.interests && form.interests.length > 0 ? form.interests : [],
         updated_at: new Date().toISOString(),
@@ -186,6 +219,41 @@ export default function TherapistProfilePage() {
         .eq("user_id", userId)
 
       if (terrErr) throw terrErr
+
+      // Update therapist_locations links based on selectedLocations
+      await supabase
+        .from("therapist_locations")
+        .delete()
+        .eq("therapist_id", userId)
+
+      const locationIds: string[] = []
+      for (const locNameRaw of selectedLocations) {
+        const name = (locNameRaw || "").trim()
+        if (!name) continue
+        const { data: existing, error: findErr } = await supabase
+          .from("locations")
+          .select("id")
+          .eq("name", name)
+          .maybeSingle()
+        if (findErr) throw findErr
+        if (existing?.id) {
+          locationIds.push(existing.id)
+        } else {
+          const { data: inserted, error: insErr } = await supabase
+            .from("locations")
+            .insert({ name })
+            .select("id")
+            .single()
+          if (insErr) throw insErr
+          if (inserted?.id) locationIds.push(inserted.id)
+        }
+      }
+
+      if (locationIds.length > 0) {
+        const rows = locationIds.map((location_id) => ({ therapist_id: userId, location_id }))
+        const { error: linkErr } = await supabase.from("therapist_locations").insert(rows)
+        if (linkErr) throw linkErr
+      }
 
       // Keep profiles.full_name in sync for header/welcome text
       if (form.full_name) {
@@ -226,6 +294,44 @@ export default function TherapistProfilePage() {
                   <img src={form.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">No image</div>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label>Locations (cities you serve)</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {availableCities.map((city) => (
+                    <label key={city} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedLocations.includes(city)}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setSelectedLocations((prev) => checked ? Array.from(new Set([...prev, city])) : prev.filter((c) => c !== city))
+                        }}
+                      />
+                      {city}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="locationInput">Add another city</Label>
+                  <Input
+                    id="locationInput"
+                    placeholder="Type a city and press Enter"
+                    value={locationInput}
+                    onChange={(e) => setLocationInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const val = (locationInput || '').trim()
+                        if (val && !selectedLocations.includes(val)) setSelectedLocations((prev) => [...prev, val])
+                        setLocationInput("")
+                      }
+                    }}
+                  />
+                </div>
+                {selectedLocations.length > 1 && (
+                  <p className="text-xs text-amber-600 mt-2">Selecting more than one location is free for now, but will be a paid feature later.</p>
                 )}
               </div>
 
@@ -302,7 +408,7 @@ export default function TherapistProfilePage() {
                     }
                   }}
                 />
-                <p className="text-xs text-gray-500 mt-1">Examples: Anxiety, CBT, Teens, Trauma</p>
+                <p className="text-xs text-gray-500 mt-1">Enter interests from most to least important. The first 3 will appear on your profile card. Examples: Anxiety, CBT, Teens, Trauma</p>
               </div>
               <div>
                 <Label htmlFor="religion">Religion</Label>
@@ -318,6 +424,7 @@ export default function TherapistProfilePage() {
                     <SelectItem value="Druze">Druze</SelectItem>
                     <SelectItem value="Sunni">Sunni</SelectItem>
                     <SelectItem value="Shiite">Shiite</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -349,14 +456,22 @@ export default function TherapistProfilePage() {
               </div>
             </div>
 
+            {/*
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="session_price_60_min">60-min Session Price</Label>
-                <Input id="session_price_60_min" type="number" value={form.session_price_60_min ?? 0} onChange={handleChange} />
+                <Input id="session_price_60_min" type="number" />
               </div>
               <div>
                 <Label htmlFor="session_price_30_min">30-min Session Price</Label>
-                <Input id="session_price_30_min" type="number" value={form.session_price_30_min ?? 0} onChange={handleChange} />
+                <Input id="session_price_30_min" type="number" />
+              </div>
+            </div>
+            */}
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="session_price_45_min">45-min Session Price</Label>
+                <Input id="session_price_45_min" type="number" value={(form as any).session_price_45_min ?? 0} onChange={handleChange} />
               </div>
             </div>
 

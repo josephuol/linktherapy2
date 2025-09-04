@@ -8,6 +8,7 @@ const payloadSchema = z.object({
   client_email: z.string().email(),
   client_phone: z.string().optional().nullable(),
   message: z.string().optional().nullable(),
+  session_id: z.string().optional().nullable(),
 })
 
 export async function POST(req: Request) {
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     client_phone: parsed.data.client_phone ?? null,
     message: parsed.data.message ?? null,
     status: "new",
+    session_id: parsed.data.session_id ?? null,
   }).select("*").single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

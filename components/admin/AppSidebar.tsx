@@ -34,7 +34,8 @@ const navItems: NavItem[] = [
   { icon: <DollarLineIcon />, name: "Payments", path: "/admin/payments" },
   { icon: <PageIcon />, name: "Create Therapists", path: "/admin/create-therapists" },
   { icon: <PageIcon />, name: "Requests", path: "/admin/requests" },
-  { icon: <PieChartIcon />, name: "Content", path: "/admin/content" },
+  { icon: <PieChartIcon />, name: "Match Analytics", path: "/admin/analytics/match" },
+  { icon: <PageIcon />, name: "Content", path: "/admin/content" },
 ];
 
 const AppSidebar: React.FC = () => {

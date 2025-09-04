@@ -17,8 +17,7 @@ type PublicTherapist = {
   profile_image_url: string | null
   bio_short: string | null
   years_of_experience: number | null
-  session_price_60_min: number | null
-  session_price_30_min: number | null
+  session_price_45_min: number | null
   ranking_points: number | null
   rating: number | null
   total_sessions: number | null
@@ -115,9 +114,9 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
   const sortedTherapists = [...therapists].sort((a, b) => {
     switch (sortBy) {
       case "price-high":
-        return (b.session_price_60_min || 0) - (a.session_price_60_min || 0)
+        return (b.session_price_45_min || 0) - (a.session_price_45_min || 0)
       case "price-low":
-        return (a.session_price_60_min || 0) - (b.session_price_60_min || 0)
+        return (a.session_price_45_min || 0) - (b.session_price_45_min || 0)
       case "experience":
         return (b.years_of_experience || 0) - (a.years_of_experience || 0)
       case "rating":
@@ -129,7 +128,7 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
   })
 
   const filteredTherapists = sortedTherapists.filter((therapist) => {
-    const price = therapist.session_price_60_min || 0
+    const price = therapist.session_price_45_min || 0
     const exp = therapist.years_of_experience || 0
     const priceMatch = price >= priceRange[0] && price <= priceRange[1]
     const problemMatch = problemFilter === "all" || (Array.isArray((therapist as any).interests) && ((therapist as any).interests as string[]).some(i => i?.toLowerCase?.() === problemFilter.toLowerCase()))
@@ -189,12 +188,13 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
             Browse through our carefully vetted network of mental health professionals
           </p>
           <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
-            <Button
+          <Button
               asChild
               size="lg"
               className="bg-[#056DBA] hover:bg-[#045A99] text-white shadow-md"
             >
-              <Link href="/therapists">Get Matched With a Therapist</Link>
+              <Link href="/therapists">Browse Therapists</Link>
+              
             </Button>
             <Button
               asChild
@@ -202,8 +202,9 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
               variant="secondary"
               className="bg-white text-[#056DBA] border border-[#056DBA]/30 hover:bg-blue-50"
             >
-              <a onClick={(e) => { e.preventDefault(); window.dispatchEvent(new Event("open-match-modal")) }}>Explore Personal Growth</a>
+              <a onClick={(e) => { e.preventDefault(); window.dispatchEvent(new Event("open-match-modal")) }}>Link me to a Therapist</a>
             </Button>
+            
           </div>
         </div>
 
@@ -231,7 +232,7 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ranking">🏆 Top Rated (By Points)</SelectItem>
+                          <SelectItem value="ranking">🏆 Top Rated</SelectItem>
                           <SelectItem value="rating">⭐ Highest Customer Rating</SelectItem>
                           <SelectItem value="price-high">💰 Price: High to Low</SelectItem>
                           <SelectItem value="price-low">💸 Price: Low to High</SelectItem>
@@ -422,14 +423,14 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
                             <div className="pt-2">
                               <div className="text-[13px] text-gray-700 mb-1 font-medium">{interestsLabel}:</div>
                               <div className="flex flex-wrap gap-2">
-                                {((therapist as any).interests as string[]).slice(0, 6).map((intVal, i) => (
+                                {((therapist as any).interests as string[]).slice(0, 3).map((intVal, i) => (
                                   <Badge key={`${(therapist as any).id}-interest-${i}`} variant="outline" className="bg-green-50 text-green-700 border-green-200">
                                     {intVal}
                                   </Badge>
                                 ))}
-                                {((therapist as any).interests as string[]).length > 6 && (
+                                {((therapist as any).interests as string[]).length > 3 && (
                                   <Badge variant="outline" className="bg-green-50 text-green-700 border-dashed border-green-300">
-                                    +{((therapist as any).interests as string[]).length - 6} more
+                                    +{((therapist as any).interests as string[]).length - 3} more
                                   </Badge>
                                 )}
                               </div>
@@ -444,7 +445,7 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-1 font-bold text-[#056DBA] text-lg">
                             <DollarSign className="h-5 w-5" />
-                            {therapist.session_price_60_min || "—"}
+                            {therapist.session_price_45_min || "—"}
                             <span className="text-sm font-normal text-gray-500">/session</span>
                           </div>
                           <div className="text-sm text-gray-500">{therapist.total_sessions ? `${therapist.total_sessions} sessions` : "New therapist"}</div>
@@ -465,7 +466,7 @@ export function TherapistDirectory({ initialTherapists = [] as any[], interestsL
                               gender: (therapist as any).gender || "",
                               lgbtq: !!(therapist as any).lgbtq_friendly,
                               experience: therapist.years_of_experience || 0,
-                              price: therapist.session_price_60_min || 0,
+                              price: therapist.session_price_45_min || 0,
                               rating: therapist.rating || 0,
                               reviews: 0,
                               bio: therapist.bio_short || "",

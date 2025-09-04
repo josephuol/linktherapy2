@@ -12,8 +12,7 @@ const schema = z.object({
   years_of_experience: z.number().int().min(0),
   languages: z.array(z.string().min(1)).min(1),
   interests: z.array(z.string().min(1)).min(1),
-  session_price_60_min: z.number().min(0),
-  session_price_30_min: z.number().min(0),
+  session_price_45_min: z.number().min(0),
   profile_image_url: z.string().url().optional(),
   // New fields
   gender: z.enum(["male","female","other"]),
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
   if (userErr || !userData?.user?.id) return NextResponse.json({ error: "Invalid token" }, { status: 401 })
   const userId = userData.user.id
 
-  const { full_name, title, bio_short, bio_long, religion, age_range, years_of_experience, languages, interests, session_price_60_min, session_price_30_min, profile_image_url, gender, lgbtq_friendly, locations } = parsed.data
+  const { full_name, title, bio_short, bio_long, religion, age_range, years_of_experience, languages, interests, session_price_45_min, profile_image_url, gender, lgbtq_friendly, locations } = parsed.data
 
   const { error: profErr } = await supabase.from("profiles").upsert({ user_id: userId, full_name, terms_accepted_at: new Date().toISOString() }, { onConflict: "user_id" })
   if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 })
@@ -54,8 +53,7 @@ export async function POST(req: Request) {
       years_of_experience,
       languages,
       interests,
-      session_price_60_min,
-      session_price_30_min,
+      session_price_45_min,
       profile_image_url,
       gender,
       lgbtq_friendly: typeof lgbtq_friendly === "boolean" ? lgbtq_friendly : undefined,

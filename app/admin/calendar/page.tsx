@@ -9,6 +9,7 @@ import { DateSelectArg, EventClickArg, EventInput } from "@fullcalendar/core"
 import { supabaseBrowser } from "@/lib/supabase-browser"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { toast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -37,6 +38,7 @@ export default function AdminCalendarPage() {
     session_date: "",
     duration_minutes: 60,
     price: 100,
+    color_tag: "Primary",
   })
 
   const loadBootstrap = async () => {
@@ -55,7 +57,7 @@ export default function AdminCalendarPage() {
   }
 
   const loadEvents = async (therapistId?: string) => {
-    const query = supabase.from("sessions").select("id, therapist_id, patient_id, client_name, client_email, client_phone, session_date, duration_minutes")
+    const query = supabase.from("sessions").select("id, therapist_id, patient_id, client_name, client_email, client_phone, session_date, duration_minutes, color_tag")
       .order("session_date", { ascending: true })
     const effectiveId = therapistId && therapistId !== 'all' ? therapistId : undefined
     const { data, error } = effectiveId ? await query.eq("therapist_id", effectiveId) : await query
@@ -85,13 +87,24 @@ export default function AdminCalendarPage() {
       title: s.client_name || "Session",
       start: s.session_date,
       end: new Date(new Date(s.session_date).getTime() + (s.duration_minutes || 60) * 60000).toISOString(),
-      extendedProps: { isTooClose: tooCloseIds.has(s.id) }
+      extendedProps: { isTooClose: tooCloseIds.has(s.id), calendar: s.color_tag || "Primary" }
     }))
     setEvents(mapped)
   }
 
   useEffect(() => { loadBootstrap().then(() => loadEvents()) }, [])
   useEffect(() => { loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined) }, [selectedTherapistId])
+
+  const recalcPayment = async (therapistId?: string | null, sessionIso?: string | null) => {
+    try {
+      if (!therapistId || !sessionIso) return
+      await fetch('/api/admin/payments/recalc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ therapist_id: therapistId, session_date: sessionIso })
+      })
+    } catch {}
+  }
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     setEditingEventId(null)
@@ -103,13 +116,14 @@ export default function AdminCalendarPage() {
       client_email: "",
       client_phone: "",
       session_date: new Date(selectInfo.start).toISOString().slice(0,16),
+      color_tag: "Primary",
     }))
     setDialogOpen(true)
   }
 
   const handleEventClick = async (clickInfo: EventClickArg) => {
     const id = String(clickInfo.event.id)
-    const { data } = await supabase.from("sessions").select("id, therapist_id, patient_id, client_name, client_email, client_phone, session_date, duration_minutes, price").eq("id", id).single()
+    const { data } = await supabase.from("sessions").select("id, therapist_id, patient_id, client_name, client_email, client_phone, session_date, duration_minutes, price, color_tag").eq("id", id).single()
     if (!data) return
     setEditingEventId(id)
     setForm({
@@ -121,11 +135,18 @@ export default function AdminCalendarPage() {
       session_date: new Date(data.session_date).toISOString().slice(0,16),
       duration_minutes: data.duration_minutes || 60,
       price: data.price || 100,
+      color_tag: data.color_tag || "Primary",
     })
     setDialogOpen(true)
   }
 
   const upsertSession = async () => {
+    // Validate start/end. end = start + duration, so ensure duration positive
+    const startMs = Date.parse(form.session_date)
+    if (isNaN(startMs) || Number(form.duration_minutes) <= 0) {
+      toast({ title: "Invalid dates", description: "Start date must be smaller than the end date", variant: "destructive" })
+      return
+    }
     const payload: any = {
       therapist_id: form.therapist_id || null,
       patient_id: form.patient_id || null,
@@ -136,11 +157,38 @@ export default function AdminCalendarPage() {
       duration_minutes: form.duration_minutes,
       price: form.price,
       status: "scheduled",
+      color_tag: form.color_tag || "Primary",
     }
     if (editingEventId) {
-      await supabase.from("sessions").update(payload).eq("id", editingEventId)
+      // Fetch previous values in case date moves across periods
+      const { data: prev } = await supabase.from("sessions").select("therapist_id, session_date").eq("id", editingEventId).single()
+      let error: any = null
+      {
+        const { error: e } = await supabase.from("sessions").update(payload).eq("id", editingEventId)
+        error = e
+      }
+      if (error && String(error.message || "").toLowerCase().includes("color_tag")) {
+        const { error: e2 } = await supabase.from("sessions").update({ ...payload, color_tag: undefined }).eq("id", editingEventId)
+        error = e2
+      }
+      if (error) { toast({ title: "Update failed", description: error.message || "Could not update session", variant: "destructive" }); return }
+      // Recalc old and new periods
+      await recalcPayment(prev?.therapist_id, prev?.session_date)
+      await recalcPayment(payload.therapist_id, payload.session_date)
     } else {
-      await supabase.from("sessions").insert(payload)
+      let error: any = null
+      {
+        const { error: e } = await supabase.from("sessions").insert(payload)
+        error = e
+      }
+      if (error && String(error.message || "").toLowerCase().includes("color_tag")) {
+        const clone = { ...payload } as any
+        delete clone.color_tag
+        const { error: e2 } = await supabase.from("sessions").insert(clone)
+        error = e2
+      }
+      if (error) { toast({ title: "Create failed", description: error.message || "Could not create session", variant: "destructive" }); return }
+      await recalcPayment(payload.therapist_id, payload.session_date)
     }
     setDialogOpen(false)
     await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
@@ -148,9 +196,11 @@ export default function AdminCalendarPage() {
 
   const deleteSession = async () => {
     if (!editingEventId) return
+    const { data: prev } = await supabase.from("sessions").select("therapist_id, session_date").eq("id", editingEventId).single()
     await supabase.from("sessions").delete().eq("id", editingEventId)
     setDialogOpen(false)
     await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
+    await recalcPayment(prev?.therapist_id, prev?.session_date)
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
@@ -182,7 +232,13 @@ export default function AdminCalendarPage() {
                 initialView="timeGridWeek"
                 headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }}
                 events={events}
-                eventClassNames={(arg) => (arg.event.extendedProps as any)?.isTooClose ? ["bg-orange-100", "border-orange-500", "text-orange-900"] : []}
+                eventClassNames={(arg) => {
+                  const ext = (arg.event.extendedProps as any) || {}
+                  const classes: string[] = []
+                  if (ext.isTooClose) classes.push("bg-orange-100", "border-orange-500", "text-orange-900")
+                  if (ext.calendar) classes.push(`event-fc-color`, `fc-bg-${String(ext.calendar).toLowerCase()}`)
+                  return classes
+                }}
                 eventDidMount={(info) => {
                   if ((info.event.extendedProps as any)?.isTooClose) {
                     info.el.style.backgroundColor = '#FFEDD5'
@@ -198,10 +254,13 @@ export default function AdminCalendarPage() {
                 eventClick={handleEventClick}
                 eventDrop={async (info) => {
                   const id = String(info.event.id)
-                  const start = info.event.start ? info.event.start.toISOString() : null
-                  if (!start) return
-                  await supabase.from("sessions").update({ session_date: start }).eq("id", id)
+                  const newStart = info.event.start ? info.event.start.toISOString() : null
+                  if (!newStart) return
+                  const { data: prev } = await supabase.from("sessions").select("therapist_id, session_date").eq("id", id).single()
+                  await supabase.from("sessions").update({ session_date: newStart }).eq("id", id)
                   await loadEvents(selectedTherapistId !== 'all' ? selectedTherapistId : undefined)
+                  await recalcPayment(prev?.therapist_id, prev?.session_date)
+                  await recalcPayment(prev?.therapist_id, newStart)
                 }}
               />
             </div>
@@ -249,6 +308,26 @@ export default function AdminCalendarPage() {
                 <div>
                   <div className="text-xs text-gray-600 mb-1">Price</div>
                   <Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value || 0) }))} />
+                </div>
+                <div className="md:col-span-2">
+                  <div className="text-xs text-gray-600 mb-1">Event Color</div>
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-5">
+                    {(["Primary","Success","Danger","Warning"]) as const}.map((key) => (
+                      <div key={key} className="n-chk">
+                        <div className={`form-check form-check-${String(key).toLowerCase()} form-check-inline`}>
+                          <label className="flex items-center text-sm text-gray-700 form-check-label" htmlFor={`adminColor${key}`}>
+                            <span className="relative">
+                              <input className="sr-only form-check-input" type="radio" name="admin-event-level" value={key} id={`adminColor${key}`} checked={form.color_tag === key} onChange={() => setForm(f => ({ ...f, color_tag: key }))} />
+                              <span className="flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box">
+                                <span className={`h-2 w-2 rounded-full bg-white ${form.color_tag === key ? "block" : "hidden"}`}></span>
+                              </span>
+                            </span>
+                            {key}
+                          </label>
+                        </div>
+                      </div>
+                    ))
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2">

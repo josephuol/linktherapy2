@@ -10,6 +10,7 @@ import Checkbox from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { supabaseBrowser } from "@/lib/supabase-browser"
+import { getOrCreateAnonSessionId } from "@/lib/utils"
 
 interface Therapist {
   id: number
@@ -83,6 +84,7 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
           client_email: formData.email,
           client_phone: formData.phone,
           message: formData.reason,
+          session_id: getOrCreateAnonSessionId(),
         }),
       })
       if (!res.ok) {

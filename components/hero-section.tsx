@@ -77,9 +77,6 @@ export function HeroSection({ content, variant = "default" }: { content?: HeroCo
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent animate-gradient">
                   {content?.h2 ?? "Only 1 in 10 therapists pass our selection process."}
                 </h2>
-                <p className="text-lg md:text-xl mb-6 text-blue-100 leading-relaxed">
-                  {content?.tagline ?? "So you're in the right hands from day one."}
-                </p>
               </div>
 
               <div className={`transition-all duration-1000 delay-300 ${isVisible ? "animate-slide-up" : "opacity-0"}`}>

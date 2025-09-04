@@ -34,10 +34,11 @@ export function TherapistMetrics({ metrics }: TherapistMetricsProps) {
     return "text-red-600"
   }
 
-  const getRankingColor = (points: number) => {
-    if (points >= 80) return "text-green-600"
-    if (points >= 60) return "text-yellow-600"
-    return "text-red-600"
+  const getRankingCategory = (points: number) => {
+    if (points >= 8000) return { label: "Top Rated", textClass: "text-amber-500", badgeClass: "bg-amber-100 text-amber-800" }
+    if (points >= 4000) return { label: "Above Average", textClass: "text-blue-600", badgeClass: "bg-blue-100 text-blue-800" }
+    if (points >= 50) return { label: "Average", textClass: "text-green-600", badgeClass: "bg-green-100 text-green-800" }
+    return { label: "Below Average", textClass: "text-red-600", badgeClass: "bg-red-100 text-red-800" }
   }
 
   return (
@@ -102,9 +103,16 @@ export function TherapistMetrics({ metrics }: TherapistMetricsProps) {
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${getRankingColor(metrics.rankingPoints)}`}>
-            {metrics.rankingPoints}%
-          </div>
+          {(() => {
+            const { label, textClass, badgeClass } = getRankingCategory(metrics.rankingPoints)
+            const percent = Math.round((metrics.rankingPoints / 10000) * 100)
+            return (
+              <div className={`text-2xl font-bold flex items-center gap-2 ${textClass}`}>
+                {percent}%
+                <Badge variant="secondary" className={badgeClass}>{label}</Badge>
+              </div>
+            )
+          })()}
           <p className="text-xs text-muted-foreground">
             Performance ranking
           </p>
@@ -120,7 +128,7 @@ export function TherapistMetrics({ metrics }: TherapistMetricsProps) {
           <div className="flex items-center justify-between">
             <div>
               <div className={`text-lg font-bold ${getChurnRateColor(metrics.churnRate)}`}>
-                {(100 - metrics.churnRate).toFixed(1)}% retention rate
+                {(100 - metrics.churnRate).toFixed(1)}% retention rate per month
               </div>
               <p className="text-xs text-muted-foreground">
                 {metrics.churnRate.toFixed(1)}% churn rate this month
@@ -149,6 +157,7 @@ export function TherapistMetrics({ metrics }: TherapistMetricsProps) {
     </div>
   )
 }
+
 
 
 

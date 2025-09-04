@@ -41,6 +41,7 @@ export default function TherapistOnboardingClient() {
   const supabase = supabaseBrowser()
   const params = useSearchParams()
   const router = useRouter()
+  const PROFILE_BUCKET = process.env.NEXT_PUBLIC_PROFILE_BUCKET || "profile-images"
 
   const [hydrating, setHydrating] = useState(true)
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -66,8 +67,7 @@ export default function TherapistOnboardingClient() {
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [selectedLocations, setSelectedLocations] = useState<string[]>([])
   const [locationInput, setLocationInput] = useState<string>("")
-  const [price60, setPrice60] = useState<number | "">("")
-  const [price30, setPrice30] = useState<number | "">("")
+  const [price45, setPrice45] = useState<number | "">("")
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [acceptTos, setAcceptTos] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -157,7 +157,7 @@ export default function TherapistOnboardingClient() {
 
   const onSaveProfile = useCallback(async () => {
     setError(null)
-    if (!fullName || !title || !bioShort || !bioLong || !religion || !ageRange || yearsOfExperience === "" || price60 === "" || price30 === "" || !gender || selectedLocations.length === 0) {
+    if (!fullName || !title || !bioShort || !bioLong || !religion || !ageRange || yearsOfExperience === "" || price45 === "" || !gender || selectedLocations.length === 0) {
       setError("Please fill all required fields")
       return
     }
@@ -178,12 +178,14 @@ export default function TherapistOnboardingClient() {
       if (profileImageFile && user?.id) {
         const ext = profileImageFile.name.split(".").pop() || "jpg"
         const path = `${user.id}/${Date.now()}.${ext}`
-        const { error: upErr } = await supabase.storage.from("therapist-avatars").upload(path, profileImageFile, { upsert: true })
+        const { error: upErr } = await supabase.storage
+          .from(PROFILE_BUCKET)
+          .upload(path, profileImageFile, { upsert: true, cacheControl: "3600" })
         if (upErr) {
           setError(upErr.message)
           return
         }
-        const { data: pub } = supabase.storage.from("therapist-avatars").getPublicUrl(path)
+        const { data: pub } = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)
         profileImageUrl = pub.publicUrl
       }
       const res = await fetch("/api/onboarding/therapist/complete", {
@@ -202,8 +204,7 @@ export default function TherapistOnboardingClient() {
           years_of_experience: typeof yearsOfExperience === "number" ? yearsOfExperience : Number(yearsOfExperience || 0),
           languages: languages.split(",").map((s) => s.trim()).filter(Boolean),
           interests,
-          session_price_60_min: typeof price60 === "number" ? price60 : Number(price60 || 0),
-          session_price_30_min: typeof price30 === "number" ? price30 : Number(price30 || 0),
+          session_price_45_min: typeof price45 === "number" ? price45 : Number(price45 || 0),
           profile_image_url: profileImageUrl,
           gender,
           lgbtq_friendly: !!lgbtqFriendly,
@@ -220,7 +221,7 @@ export default function TherapistOnboardingClient() {
     } finally {
       setSavingProfile(false)
     }
-  }, [fullName, title, bioShort, bioLong, religion, ageRange, yearsOfExperience, languages, price60, price30, profileImageFile, acceptTos, supabase, router, gender, lgbtqFriendly, selectedLocations])
+  }, [fullName, title, bioShort, bioLong, religion, ageRange, yearsOfExperience, languages, price45, profileImageFile, acceptTos, supabase, router, gender, lgbtqFriendly, selectedLocations])
 
   if (hydrating) return <div className="p-6">Preparing your account...</div>
 
@@ -288,6 +289,7 @@ export default function TherapistOnboardingClient() {
                     <SelectItem value="Druze">Druze</SelectItem>
                     <SelectItem value="Sunni">Sunni</SelectItem>
                     <SelectItem value="Shiite">Shiite</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -327,14 +329,22 @@ export default function TherapistOnboardingClient() {
                 <Label htmlFor="languages">Languages</Label>
                 <Input id="languages" placeholder="Comma-separated (e.g., Arabic, English)" value={languages} onChange={(e) => setLanguages(e.target.value)} />
               </div>
+              {/*
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="price60">60-min Session Price</Label>
-                  <Input id="price60" type="number" placeholder="e.g., 100" value={price60} onChange={(e) => setPrice60(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input id="price60" type="number" placeholder="e.g., 100" />
                 </div>
                 <div>
                   <Label htmlFor="price30">30-min Session Price</Label>
-                  <Input id="price30" type="number" placeholder="e.g., 60" value={price30} onChange={(e) => setPrice30(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input id="price30" type="number" placeholder="e.g., 60" />
+                </div>
+              </div>
+              */}
+              <div className="md:col-span-2 grid grid-cols-1 gap-4">
+                <div>
+                  <Label htmlFor="price45">45-min Session Price</Label>
+                  <Input id="price45" type="number" placeholder="e.g., 90" value={price45} onChange={(e) => setPrice45(e.target.value === "" ? "" : Number(e.target.value))} />
                 </div>
               </div>
               <div className="md:col-span-2">
@@ -363,7 +373,7 @@ export default function TherapistOnboardingClient() {
                     }
                   }}
                 />
-                <p className="text-xs text-gray-500 mt-1">Required. Examples: Anxiety, CBT, Teens, Trauma</p>
+                <p className="text-xs text-gray-500 mt-1">Required. Enter interests from most to least important. The first 3 will appear on your profile card. Examples: Anxiety, CBT, Teens, Trauma</p>
               </div>
               <div className="md:col-span-2">
                 <Label>Locations (cities you serve)</Label>

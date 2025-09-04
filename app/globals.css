@@ -58,8 +58,11 @@
 /* Calendar theming (subset of template styling) */
 .fc .fc-toolbar.fc-header-toolbar { @apply flex-col gap-4 px-6 pt-6 sm:flex-row; }
 .fc-button-group { @apply gap-2; }
-.fc-button-group .fc-button { @apply flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-transparent hover:border-gray-200 hover:bg-gray-50; }
+.fc-button-group .fc-button { @apply flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-transparent text-gray-700 hover:border-gray-200 hover:bg-gray-50 hover:text-gray-900; }
 .fc-toolbar-title { @apply text-lg font-medium text-gray-800; }
+.fc-button .fc-icon { @apply text-gray-700; }
+/* Make view switcher buttons (Month/Week/Day) readable and auto-sized */
+.fc-header-toolbar.fc-toolbar .fc-toolbar-chunk:last-child .fc-button { @apply !h-auto !w-auto rounded-md !border-0 bg-transparent !px-4 !py-2 text-sm font-medium text-gray-700 hover:text-gray-900; }
 .fc .fc-col-header-cell-cushion { @apply px-5 py-4 text-sm font-medium uppercase text-gray-400; }
 .fc .fc-daygrid-day-number { @apply p-3 text-sm font-medium text-gray-700; }
 .event-fc-color { @apply rounded-lg py-2.5 pl-4 pr-3; }
@@ -73,6 +76,23 @@
 .event-fc-color.fc-bg-danger .fc-daygrid-event-dot { @apply bg-red-500; }
 .event-fc-color.fc-bg-success .fc-daygrid-event-dot { @apply bg-green-500; }
 .event-fc-color.fc-bg-warning .fc-daygrid-event-dot { @apply bg-yellow-500; }
+/* Event Color radio styles */
+.form-check { @apply inline-flex items-center; }
+.form-check-inline { @apply mr-3; }
+.form-check-label { @apply cursor-pointer; }
+.form-check .box { @apply w-5 h-5 mr-2 inline-flex items-center justify-center rounded-full border; }
+
+/* Unselected border colors per option */
+.form-check-primary .box { @apply border-[#056DBA]; }
+.form-check-success .box { @apply border-green-600; }
+.form-check-danger .box { @apply border-red-500; }
+.form-check-warning .box { @apply border-amber-500; }
+
+/* Selected fill per option */
+.form-check-primary .form-check-input:checked + .box { @apply bg-[#056DBA] border-[#056DBA]; }
+.form-check-success .form-check-input:checked + .box { @apply bg-green-600 border-green-600; }
+.form-check-danger .form-check-input:checked + .box { @apply bg-red-500 border-red-500; }
+.form-check-warning .form-check-input:checked + .box { @apply bg-amber-500 border-amber-500; }
 /* Custom animations */
 @keyframes float {
   0%,

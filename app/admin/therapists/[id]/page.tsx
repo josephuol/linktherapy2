@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { supabaseBrowser } from "@/lib/supabase-browser"
+import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import FullCalendar from "@fullcalendar/react"
@@ -26,13 +27,76 @@ export default function AdminTherapistDetailPage() {
   const [metrics, setMetrics] = useState<any | null>(null)
   const [events, setEvents] = useState<EventInput[]>([])
   const [payments, setPayments] = useState<any[]>([])
+  const [liveCommission, setLiveCommission] = useState<number>(0)
   const [contactRequests, setContactRequests] = useState<any[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
   const [paymentStatus, setPaymentStatus] = useState<any | null>(null)
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([])
   const calendarRef = useRef<FullCalendar>(null)
+  const getCurrentPeriodBounds = () => {
+    const now = new Date()
+    const year = now.getUTCFullYear()
+    const month = now.getUTCMonth()
+    const day = now.getUTCDate()
+    const start = new Date(Date.UTC(year, month, day <= 15 ? 1 : 16, 0, 0, 0, 0))
+    const end = new Date(Date.UTC(year, month, day <= 15 ? 15 : new Date(Date.UTC(year, month + 1, 0)).getUTCDate(), 23, 59, 59, 999))
+    const endExclusive = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1, 0, 0, 0, 0))
+    return { start, end, endExclusive }
+  }
+
+  const computeLiveCommission = async () => {
+    if (!therapistId) return
+    const { start, endExclusive } = getCurrentPeriodBounds()
+    const { count } = await (supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("therapist_id", therapistId)
+      .in("status", ["scheduled", "completed"]) 
+      .gte("session_date", start.toISOString())
+      .lt("session_date", endExclusive.toISOString()) as any)
+    const total = count || 0
+    setLiveCommission(total * ADMIN_COMMISSION_PER_SESSION)
+  }
+
+  const currentPeriodForDisplay = () => {
+    const { start, end } = getCurrentPeriodBounds()
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    }
+  }
+
+
+  const recalcPayment = async (sessionIso: string) => {
+    try {
+      if (!therapistId || !sessionIso) return
+      await fetch('/api/admin/payments/recalc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ therapist_id: therapistId, session_date: sessionIso })
+      })
+    } catch {}
+  }
+
+  const refreshPaymentsAndCommission = async () => {
+    if (!therapistId) return
+    const { data: pays } = await supabase
+      .from("therapist_payments")
+      .select("payment_period_start, payment_period_end, total_sessions, commission_amount, payment_due_date, payment_completed_date, status")
+      .eq("therapist_id", therapistId)
+      .order("payment_period_start", { ascending: false })
+    setPayments((pays as any) || [])
+    // Update bimonthly commission metric immediately
+    const twoMonthsAgo = new Date(); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+    const bimonthlyCommission = ((pays as any) || [])
+      .filter((p: any) => new Date(p.payment_period_start) >= twoMonthsAgo)
+      .reduce((sum: number, p: any) => sum + (Number(p.commission_amount) || 0), 0)
+    setMetrics((prev: any) => prev ? { ...prev, bimonthlyCommission } : prev)
+  }
 
   useEffect(() => {
+    let paymentsChannel: any
+    let sessionsChannel: any
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace("/admin/login"); return }
@@ -160,9 +224,44 @@ export default function AdminTherapistDetailPage() {
       })
       const withFlag = (futureSessions || []).map((s: any) => ({ ...s, isTooClose: tooCloseIds.has(s.id) }))
       setUpcomingSessions(withFlag)
+      await computeLiveCommission()
       setLoading(false)
+
+      // Live updates: refresh payments/commission when therapist_payments changes
+      paymentsChannel = supabase
+        .channel('therapist_payments_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'therapist_payments',
+            filter: `therapist_id=eq.${therapistId}`
+          },
+          () => { refreshPaymentsAndCommission() }
+        )
+        .subscribe()
+
+      // Also react to sessions changes immediately
+      sessionsChannel = supabase
+        .channel('therapist_sessions_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'sessions',
+            filter: `therapist_id=eq.${therapistId}`
+          },
+          () => { computeLiveCommission() }
+        )
+        .subscribe()
     }
     if (therapistId) init()
+    return () => {
+      if (paymentsChannel) supabase.removeChannel(paymentsChannel)
+      if (sessionsChannel) supabase.removeChannel(sessionsChannel)
+    }
   }, [therapistId])
 
   // Handlers for notifications
@@ -202,6 +301,8 @@ export default function AdminTherapistDetailPage() {
       price: 100,
       status: "scheduled",
     })
+    await recalcPayment(sessionIsoDateTime)
+    await refreshPaymentsAndCommission()
     const nowIsoRef = new Date().toISOString()
     const { data: futureSessions } = await supabase
       .from("sessions")
@@ -225,6 +326,8 @@ export default function AdminTherapistDetailPage() {
       price: 100,
       status: "scheduled",
     })
+    await recalcPayment(sessionIsoDateTime)
+    await refreshPaymentsAndCommission()
     const nowIsoRef = new Date().toISOString()
     const { data: futureSessions } = await supabase
       .from("sessions")
@@ -295,14 +398,13 @@ export default function AdminTherapistDetailPage() {
             <CardHeader><div className="text-lg font-semibold text-gray-900">Payment Status</div></CardHeader>
             <CardContent>
               <div className="text-sm space-y-2">
-                {payments.length === 0 ? (
-                  <div className="text-gray-600">No payments yet</div>
-                ) : (
-                  <>
-                    <div className="flex justify-between"><span className="text-gray-600">Next Due</span><span className="font-medium">{payments.find(p => p.status === 'pending' || p.status === 'overdue')?.payment_due_date ? new Date(payments.find(p => p.status === 'pending' || p.status === 'overdue')?.payment_due_date).toLocaleString() : '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Latest Period</span><span className="font-medium">{payments[0]?.payment_period_start} → {payments[0]?.payment_period_end}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Commission</span><span className="font-medium">${payments[0]?.commission_amount ?? 0}</span></div>
-                  </>
+                <div className="flex justify-between"><span className="text-gray-600">Next Due</span><span className="font-medium">{payments.find(p => p.status === 'pending' || p.status === 'overdue')?.payment_due_date ? new Date(payments.find(p => p.status === 'pending' || p.status === 'overdue')?.payment_due_date).toLocaleString() : '—'}</span></div>
+                {(() => { const p = currentPeriodForDisplay(); return (
+                  <div className="flex justify-between"><span className="text-gray-600">Current Period</span><span className="font-medium">{p.start} → {p.end}</span></div>
+                )})()}
+                <div className="flex justify-between"><span className="text-gray-600">Commission</span><span className="font-medium">${liveCommission}</span></div>
+                {payments.length === 0 && (
+                  <div className="text-xs text-gray-500">No payment records yet for this therapist.</div>
                 )}
               </div>
             </CardContent>

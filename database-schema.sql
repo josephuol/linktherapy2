@@ -1,6 +1,18 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.admin_audit_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_admin_id uuid NOT NULL,
+  action text NOT NULL,
+  target_email text,
+  target_user_id uuid,
+  details jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT admin_audit_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT admin_audit_logs_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES auth.users(id),
+  CONSTRAINT admin_audit_logs_actor_admin_id_fkey FOREIGN KEY (actor_admin_id) REFERENCES public.admin_users(id)
+);
 CREATE TABLE public.admin_users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
@@ -26,6 +38,7 @@ CREATE TABLE public.contact_requests (
   assigned_by uuid,
   assigned_at timestamp with time zone,
   admin_notes text,
+  session_id text,
   CONSTRAINT contact_requests_pkey PRIMARY KEY (id),
   CONSTRAINT contact_requests_assigned_therapist_id_fkey FOREIGN KEY (assigned_therapist_id) REFERENCES public.therapists(user_id)
 );
@@ -35,6 +48,24 @@ CREATE TABLE public.locations (
   type text DEFAULT 'city'::text CHECK (type = ANY (ARRAY['city'::text, 'region'::text])),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT locations_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.match_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id text NOT NULL,
+  user_id uuid,
+  problem text,
+  city text,
+  area text,
+  gender text,
+  lgbtq text,
+  religion text,
+  exp_band text,
+  price_min numeric,
+  price_max numeric,
+  source_page text,
+  user_agent text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT match_events_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.patients (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -53,6 +84,8 @@ CREATE TABLE public.profiles (
   role USER-DEFINED NOT NULL DEFAULT 'therapist'::app_role,
   full_name text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  terms_accepted_at timestamp with time zone,
+  email text UNIQUE,
   CONSTRAINT profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -92,8 +125,16 @@ CREATE TABLE public.sessions (
   client_phone text,
   rescheduled_from uuid,
   flagged_close boolean NOT NULL DEFAULT false,
+  reschedule_reason text,
+  rescheduled_by uuid,
+  counts_for_scoring boolean NOT NULL DEFAULT true,
+  was_rescheduled boolean NOT NULL DEFAULT false,
+  rescheduled_from_date timestamp with time zone,
+  rescheduled_to_date timestamp with time zone,
+  color_tag text,
   CONSTRAINT sessions_pkey PRIMARY KEY (id),
   CONSTRAINT sessions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
+  CONSTRAINT sessions_rescheduled_by_fkey FOREIGN KEY (rescheduled_by) REFERENCES auth.users(id),
   CONSTRAINT sessions_therapist_id_fkey FOREIGN KEY (therapist_id) REFERENCES public.therapists(user_id),
   CONSTRAINT sessions_rescheduled_from_fkey FOREIGN KEY (rescheduled_from) REFERENCES public.sessions(id)
 );
@@ -129,6 +170,23 @@ CREATE TABLE public.therapist_bimonthly_checks (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT therapist_bimonthly_checks_pkey PRIMARY KEY (id),
   CONSTRAINT therapist_bimonthly_checks_therapist_id_fkey FOREIGN KEY (therapist_id) REFERENCES public.therapists(user_id)
+);
+CREATE TABLE public.therapist_invitations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  token_hash text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'expired'::text, 'revoked'::text, 'bounced'::text, 'undeliverable'::text])),
+  invited_by_admin_id uuid,
+  invited_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_sent_at timestamp with time zone,
+  send_count integer NOT NULL DEFAULT 1,
+  expires_at timestamp with time zone NOT NULL,
+  accepted_at timestamp with time zone,
+  accepted_user_id uuid,
+  failure_reason text,
+  CONSTRAINT therapist_invitations_pkey PRIMARY KEY (id),
+  CONSTRAINT therapist_invitations_invited_by_admin_id_fkey FOREIGN KEY (invited_by_admin_id) REFERENCES public.admin_users(id),
+  CONSTRAINT therapist_invitations_accepted_user_id_fkey FOREIGN KEY (accepted_user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.therapist_locations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -223,6 +281,12 @@ CREATE TABLE public.therapists (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   interests ARRAY NOT NULL DEFAULT '{}'::text[],
+  phone text,
+  license_number text,
+  license_state text,
+  npi text,
+  timezone text,
+  session_price_45_min numeric,
   CONSTRAINT therapists_pkey PRIMARY KEY (user_id),
   CONSTRAINT therapists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

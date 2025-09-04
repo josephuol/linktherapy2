@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { getOrCreateAnonSessionId } from "@/lib/utils"
 
 export type MatchConfig = {
   questions?: Record<string, string>
@@ -15,7 +16,7 @@ export type MatchConfig = {
     genders?: string[]
     lgbtq?: string[]
     religions?: string[]
-    ages?: string[]
+    /*ages?: string[]*/
     experienceBands?: string[]
   }
 }
@@ -98,7 +99,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
     { key: "gender", label: q.gender || "Preferred therapist gender?" },
     { key: "lgbtq", label: q.lgbtq || "LGBTQ+ related experience?" },
     { key: "religion", label: q.religion || "Therapist religion?" },
-    { key: "age", label: q.age || "Therapist age?" },
+    /*{ key: "age", label: q.age || "Therapist age?" },*/
     { key: "experience", label: q.experience || "Therapist years of experience?" },
     { key: "budget", label: q.budget || "What budget do you have in mind?" },
   ] as const
@@ -129,12 +130,33 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
     if (gender && gender.toLowerCase() !== "don't care") params.set("gender", gender)
     if (lgbtq && lgbtq.toLowerCase() !== "don't care") params.set("lgbtq", lgbtq)
     if (religion && religion.toLowerCase() !== "don't care") params.set("religion", religion)
-    if (age && age.toLowerCase() !== "don't care") params.set("age", age)
+    /*if (age && age.toLowerCase() !== "don't care") params.set("age", age)*/
     if (exp) params.set("exp", exp)
     if (budget) {
       params.set("price_min", String(budget[0]))
       params.set("price_max", String(budget[1]))
     }
+    try {
+      const payload = {
+        session_id: getOrCreateAnonSessionId(),
+        problem,
+        city,
+        area,
+        gender,
+        lgbtq,
+        religion,
+        exp_band: exp,
+        price_min: budget?.[0],
+        price_max: budget?.[1],
+        source_page: typeof window !== 'undefined' ? window.location.pathname : null,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }
+      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+      const ok = typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function' && navigator.sendBeacon('/api/match-events', blob)
+      if (!ok) {
+        fetch('/api/match-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {})
+      }
+    } catch {}
     window.location.href = `/therapists?${params.toString()}`
   }
 
@@ -206,14 +228,14 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[4].label}</div>
               <div className="flex flex-wrap gap-2">
-                {(opt.religions || ["Christian","Druze","Sunni","Shiite","Don't care"]).map((r) => (
+                {(opt.religions || ["Christian","Druze","Sunni","Shiite", "Other", "Don't care"]).map((r) => (
                   <Button key={r} variant={religion === r ? "default" : "secondary"} className={religion === r ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setReligion(religion === r ? null : r)} size="sm">{r}</Button>
                 ))}
               </div>
             </div>
           )}
 
-          {stepIndex === 5 && (
+          {/*{stepIndex === 5 && (
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[5].label}</div>
               <div className="flex flex-wrap gap-2">
@@ -222,11 +244,11 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
                 ))}
               </div>
             </div>
-          )}
+          )}*/}
 
-          {stepIndex === 6 && (
+          {stepIndex === 5 && (
             <div className="space-y-2">
-              <div className="text-sm font-semibold text-gray-800">{steps[6].label}</div>
+              <div className="text-sm font-semibold text-gray-800">{steps[5].label}</div>
               <div className="flex flex-wrap gap-2">
                 {(opt.experienceBands || ["1-3","4-7","7-10","10+"]).map((e) => (
                   <Button key={e} variant={exp === e ? "default" : "secondary"} className={exp === e ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setExp(exp === e ? null : e)} size="sm">{e}</Button>
@@ -235,9 +257,9 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             </div>
           )}
 
-          {stepIndex === 7 && (
+          {stepIndex === 6 && (
             <div className="space-y-2">
-              <div className="text-sm font-semibold text-gray-800">{steps[7].label}</div>
+              <div className="text-sm font-semibold text-gray-800">{steps[6].label}</div>
               <div className="px-1">
                 <Slider value={budget} onValueChange={(v) => setBudget([v[0], v[1]])} min={bounds.min} max={bounds.max} step={5} />
                 <div className="text-xs text-gray-600 mt-2">${budget[0]} - ${budget[1]} per session</div>

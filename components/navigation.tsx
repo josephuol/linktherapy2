@@ -93,7 +93,7 @@ export function Navigation() {
             >
               FAQ
             </Link>
-            <Link href="/login">
+            <Link href="/dashboard">
               <Button
                 className={`transition-all duration-300 hover:scale-105 ${styles.buttonStyle}`}
               >
@@ -144,7 +144,7 @@ export function Navigation() {
               >
                 FAQ
               </Link>
-              <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+              <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>
                 <Button
                   className="bg-[#056DBA] hover:bg-[#045A99] text-white w-fit transition-all duration-300 hover:scale-105"
                 >

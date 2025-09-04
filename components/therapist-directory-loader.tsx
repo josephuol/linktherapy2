@@ -8,7 +8,7 @@ export default async function TherapistDirectoryLoader({ showFilters = true, lim
   const { data } = await supabase
     .from("public_therapists")
     .select(
-      "id, full_name, title, profile_image_url, bio_short, years_of_experience, session_price_60_min, session_price_30_min, ranking_points, rating, total_sessions, status, interests, gender, religion, age_range, lgbtq_friendly, locations"
+      "id, full_name, title, profile_image_url, bio_short, years_of_experience, session_price_45_min, session_price_60_min, session_price_30_min, ranking_points, rating, total_sessions, status, interests, gender, religion, age_range, lgbtq_friendly, locations"
     )
   const { data: labelsRow } = await supabase
     .from("site_content")
@@ -34,7 +34,7 @@ export default async function TherapistDirectoryLoader({ showFilters = true, lim
   const matchConfig: MatchConfig | undefined = (matchRow as any)?.content || undefined
 
   const priceValues = Array.isArray(data) ? (data as any[])
-    .map((t) => (t as any).session_price_60_min)
+    .map((t) => (t as any).session_price_45_min)
     .filter((v) => typeof v === "number" && isFinite(v)) as number[] : []
   const minPrice = priceValues.length ? Math.min(...priceValues) : 50
   const maxPrice = priceValues.length ? Math.max(...priceValues) : 250

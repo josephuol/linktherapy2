@@ -115,10 +115,7 @@ export default function AdminContentPage() {
                     <div className="text-sm text-gray-700 mb-1">Sub heading (H2)</div>
                     <Input placeholder="Only 1 in 10 therapists pass our selection process." value={(items[d.key]?.content?.h2 ?? "")} onChange={e => setItems(prev => ({ ...prev, [d.key]: { ...prev[d.key], content: { ...(prev[d.key]?.content || {}), h2: e.target.value } } }))} />
                   </div>
-                  <div>
-                    <div className="text-sm text-gray-700 mb-1">Tagline</div>
-                    <Input placeholder="So you're in the right hands from day one." value={(items[d.key]?.content?.tagline ?? "")} onChange={e => setItems(prev => ({ ...prev, [d.key]: { ...prev[d.key], content: { ...(prev[d.key]?.content || {}), tagline: e.target.value } } }))} />
-                  </div>
+                  
                   <div>
                     <div className="text-sm text-gray-700 mb-1">Intro paragraph</div>
                     <Textarea rows={4} placeholder="Find a therapist that fits your budget, near you or online..." value={(items[d.key]?.content?.intro ?? "")} onChange={e => setItems(prev => ({ ...prev, [d.key]: { ...prev[d.key], content: { ...(prev[d.key]?.content || {}), intro: e.target.value } } }))} />

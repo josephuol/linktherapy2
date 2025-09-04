@@ -13,6 +13,7 @@ import {
 import { useModal } from "@/hooks/use-modal";
 import { Modal } from "@/components/ui/modal";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { toast } from "@/hooks/use-toast";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -42,22 +43,37 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     const fetchSessions = async () => {
-      const { data: sessions, error } = await supabase
-        .from("sessions")
-        .select("*")
-        .order("session_date", { ascending: true });
+      // Try selecting color_tag; if the column doesn't exist yet, fall back
+      let sessions: any[] | null = null
+      let error: any = null
+      {
+        const { data, error: err } = await supabase
+          .from("sessions")
+          .select("id, client_name, session_date, duration_minutes, color_tag")
+          .order("session_date", { ascending: true });
+        sessions = data as any[] | null
+        error = err
+      }
+      if (error && String(error.message || "").toLowerCase().includes("color_tag")) {
+        const { data, error: err2 } = await supabase
+          .from("sessions")
+          .select("id, client_name, session_date, duration_minutes")
+          .order("session_date", { ascending: true });
+        sessions = data as any[] | null
+        error = err2
+      }
 
       if (error) {
         console.error("Error fetching sessions:", error);
         return;
       }
 
-      const formattedEvents = sessions.map((session) => ({
+      const formattedEvents = (sessions || []).map((session: any) => ({
         id: session.id,
         title: session.client_name || "Session",
         start: session.session_date,
         end: new Date(new Date(session.session_date).getTime() + (session.duration_minutes || 60) * 60000).toISOString(),
-        extendedProps: { calendar: "Primary" },
+        extendedProps: { calendar: (session.color_tag as string) || "Primary" },
       }));
 
       setEvents(formattedEvents);
@@ -83,16 +99,36 @@ const CalendarPage: React.FC = () => {
   };
 
   const handleAddOrUpdateEvent = async () => {
+    // Basic validation: Start must be before End
+    if (eventStartDate && eventEndDate) {
+      const start = new Date(eventStartDate).getTime();
+      const end = new Date(eventEndDate).getTime();
+      if (!isNaN(start) && !isNaN(end) && end < start) {
+        toast({ title: "Invalid dates", description: "Start date must be smaller than the end date", variant: "destructive" });
+        return;
+      }
+    }
     if (selectedEvent) {
       // Update existing event
-      const { data, error } = await supabase
-        .from("sessions")
-        .update({ client_name: eventTitle, session_date: eventStartDate })
-        .eq("id", selectedEvent.event.id);
-
-      if (error) {
-        console.error("Error updating session:", error);
-        return;
+      let updateError: any = null
+      {
+        const { error } = await supabase
+          .from("sessions")
+          .update({ client_name: eventTitle, session_date: eventStartDate, color_tag: eventLevel || "Primary" })
+          .eq("id", selectedEvent.event.id)
+        updateError = error
+      }
+      if (updateError && String(updateError.message || "").toLowerCase().includes("color_tag")) {
+        const { error } = await supabase
+          .from("sessions")
+          .update({ client_name: eventTitle, session_date: eventStartDate })
+          .eq("id", selectedEvent.event.id)
+        updateError = error
+      }
+      if (updateError) {
+        console.error("Error updating session:", updateError)
+        toast({ title: "Update failed", description: updateError.message || "Could not update session", variant: "destructive" })
+        return
       }
 
       const updatedEvents = events.map((event) =>
@@ -102,37 +138,57 @@ const CalendarPage: React.FC = () => {
               title: eventTitle,
               start: eventStartDate,
               end: eventEndDate,
-              extendedProps: { calendar: eventLevel },
+              extendedProps: { calendar: eventLevel || "Primary" },
             }
           : event
       );
       setEvents(updatedEvents);
     } else {
       // Add new event
-      const { data, error } = await supabase
-        .from("sessions")
-        .insert([
-          {
-            client_name: eventTitle,
-            session_date: eventStartDate,
-            // You might need to add other required fields here
-          },
-        ])
-        .select();
-
-      if (error) {
-        console.error("Error adding session:", error);
-        return;
+      let insertData: any = null
+      let insertError: any = null
+      {
+        const { data, error } = await supabase
+          .from("sessions")
+          .insert([
+            {
+              client_name: eventTitle,
+              session_date: eventStartDate,
+              color_tag: eventLevel || "Primary",
+            },
+          ])
+          .select()
+        insertData = data
+        insertError = error
+      }
+      if (insertError && String(insertError.message || "").toLowerCase().includes("color_tag")) {
+        const { data, error } = await supabase
+          .from("sessions")
+          .insert([
+            {
+              client_name: eventTitle,
+              session_date: eventStartDate,
+            },
+          ])
+          .select()
+        insertData = data
+        insertError = error
       }
 
-      if (data) {
+      if (insertError) {
+        console.error("Error adding session:", insertError)
+        toast({ title: "Create failed", description: insertError.message || "Could not create session", variant: "destructive" })
+        return
+      }
+
+      if (insertData) {
         const newEvent: EventInput = {
-          id: data[0].id,
-          title: data[0].client_name,
-          start: data[0].session_date,
+          id: insertData[0].id,
+          title: insertData[0].client_name,
+          start: insertData[0].session_date,
           end: eventEndDate,
           allDay: true,
-          extendedProps: { calendar: eventLevel },
+          extendedProps: { calendar: eventLevel || "Primary" },
         };
         setEvents((prevEvents) => [...prevEvents, newEvent]);
       }
