@@ -287,6 +287,6 @@ CREATE TABLE public.therapists (
   npi text,
   timezone text,
   session_price_45_min numeric,
-  CONSTRAINT therapists_pkey PRIMARY KEY (user_id),
+  CONSTRAINT therapists_pkey PRIMARY KEY (user_id),I
   CONSTRAINT therapists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
