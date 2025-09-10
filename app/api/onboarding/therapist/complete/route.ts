@@ -17,7 +17,7 @@ const schema = z.object({
   // New fields
   gender: z.enum(["male","female","other"]),
   lgbtq_friendly: z.boolean().optional(),
-  locations: z.array(z.string().min(1)).min(1),
+  locations: z.array(z.string().min(1)).min(1).max(2),
 })
 
 export async function POST(req: Request) {

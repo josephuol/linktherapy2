@@ -40,6 +40,7 @@ export default function TherapistProfilePage() {
   const [availableCities, setAvailableCities] = useState<string[]>([])
   const [selectedLocations, setSelectedLocations] = useState<string[]>([])
   const [locationInput, setLocationInput] = useState<string>("")
+  const [interestsInput, setInterestsInput] = useState<string>("")
 
   const [form, setForm] = useState<Therapist>({
     user_id: "",
@@ -197,6 +198,12 @@ export default function TherapistProfilePage() {
         setSaving(false)
         return
       }
+      // Enforce at most 2 locations selected
+      if (selectedLocations.length > 2) {
+        toast({ title: "Too many locations", description: "You can select up to 2 locations.", variant: "destructive" })
+        setSaving(false)
+        return
+      }
       const updatePayload = {
         full_name: form.full_name || null,
         title: form.title || null,
@@ -304,9 +311,10 @@ export default function TherapistProfilePage() {
                       <input
                         type="checkbox"
                         checked={selectedLocations.includes(city)}
+                        disabled={!selectedLocations.includes(city) && selectedLocations.length >= 2}
                         onChange={(e) => {
                           const checked = e.target.checked
-                          setSelectedLocations((prev) => checked ? Array.from(new Set([...prev, city])) : prev.filter((c) => c !== city))
+                          setSelectedLocations((prev) => checked ? Array.from(new Set([...prev, city])).slice(0, 2) : prev.filter((c) => c !== city))
                         }}
                       />
                       {city}
@@ -320,18 +328,20 @@ export default function TherapistProfilePage() {
                     placeholder="Type a city and press Enter"
                     value={locationInput}
                     onChange={(e) => setLocationInput(e.target.value)}
+                    disabled={selectedLocations.length >= 2}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
                         const val = (locationInput || '').trim()
-                        if (val && !selectedLocations.includes(val)) setSelectedLocations((prev) => [...prev, val])
+                        if (val && !selectedLocations.includes(val) && selectedLocations.length < 2) setSelectedLocations((prev) => [...prev, val])
                         setLocationInput("")
                       }
                     }}
                   />
                 </div>
-                {selectedLocations.length > 1 && (
-                  <p className="text-xs text-amber-600 mt-2">Selecting more than one location is free for now, but will be a paid feature later.</p>
+                <p className="text-xs text-gray-500 mt-1">You can select up to 2 locations.</p>
+                {selectedLocations.length >= 2 && (
+                  <p className="text-xs text-amber-600 mt-1">You can select up to 2 locations.</p>
                 )}
               </div>
 
@@ -391,23 +401,39 @@ export default function TherapistProfilePage() {
                     </span>
                   ))}
                 </div>
-                <Input
-                  placeholder="Type an interest and press Enter"
-                  onKeyDown={(e: any) => {
-                    const target = e.target as HTMLInputElement
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault()
-                      const val = target.value.trim()
-                      if (val && !(form.interests || []).includes(val)) {
-                        setForm((prev) => ({ ...prev, interests: [...(prev.interests || []), val] }))
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Type an interest and press Enter"
+                    value={interestsInput}
+                    onChange={(e) => setInterestsInput(e.target.value)}
+                    onKeyDown={(e: any) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const val = interestsInput.trim()
+                        const exists = (form.interests || []).some((i) => i.toLowerCase() === val.toLowerCase())
+                        if (val && !exists) {
+                          setForm((prev) => ({ ...prev, interests: [...(prev.interests || []), val] }))
+                        }
+                        setInterestsInput('')
                       }
-                      target.value = ''
-                    }
-                    if (e.key === 'Backspace' && target.value === '' && (form.interests || []).length > 0) {
-                      setForm((prev) => ({ ...prev, interests: (prev.interests || []).slice(0, -1) }))
-                    }
-                  }}
-                />
+                      if (e.key === 'Backspace' && interestsInput === '' && (form.interests || []).length > 0) {
+                        setForm((prev) => ({ ...prev, interests: (prev.interests || []).slice(0, -1) }))
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    aria-label="Add interest"
+                    onClick={() => {
+                      const val = interestsInput.trim()
+                      const exists = (form.interests || []).some((i) => i.toLowerCase() === val.toLowerCase())
+                      if (val && !exists) setForm((prev) => ({ ...prev, interests: [...(prev.interests || []), val] }))
+                      setInterestsInput('')
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">Enter interests from most to least important. The first 3 will appear on your profile card. Examples: Anxiety, CBT, Teens, Trauma</p>
               </div>
               <div>

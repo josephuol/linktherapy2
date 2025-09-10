@@ -357,22 +357,37 @@ export default function TherapistOnboardingClient() {
                     </span>
                   ))}
                 </div>
-                <Input
-                  placeholder="Type an interest and press Enter"
-                  value={interestsInput}
-                  onChange={(e) => setInterestsInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault()
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Type an interest and press Enter"
+                    value={interestsInput}
+                    onChange={(e) => setInterestsInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const val = interestsInput.trim()
+                        const exists = interests.some((i) => i.toLowerCase() === val.toLowerCase())
+                        if (val && !exists) setInterests((prev) => [...prev, val])
+                        setInterestsInput("")
+                      }
+                      if (e.key === 'Backspace' && interestsInput === "" && interests.length > 0) {
+                        setInterests((prev) => prev.slice(0, -1))
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    aria-label="Add interest"
+                    onClick={() => {
                       const val = interestsInput.trim()
-                      if (val && !interests.includes(val)) setInterests((prev) => [...prev, val])
+                      const exists = interests.some((i) => i.toLowerCase() === val.toLowerCase())
+                      if (val && !exists) setInterests((prev) => [...prev, val])
                       setInterestsInput("")
-                    }
-                    if (e.key === 'Backspace' && interestsInput === "" && interests.length > 0) {
-                      setInterests((prev) => prev.slice(0, -1))
-                    }
-                  }}
-                />
+                    }}
+                  >
+                    +
+                  </Button>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">Required. Enter interests from most to least important. The first 3 will appear on your profile card. Examples: Anxiety, CBT, Teens, Trauma</p>
               </div>
               <div className="md:col-span-2">
@@ -383,9 +398,10 @@ export default function TherapistOnboardingClient() {
                       <input
                         type="checkbox"
                         checked={selectedLocations.includes(city)}
+                        disabled={!selectedLocations.includes(city) && selectedLocations.length >= 2}
                         onChange={(e) => {
                           const checked = e.target.checked
-                          setSelectedLocations((prev) => checked ? Array.from(new Set([...prev, city])) : prev.filter((c) => c !== city))
+                          setSelectedLocations((prev) => checked ? Array.from(new Set([...prev, city])).slice(0, 2) : prev.filter((c) => c !== city))
                         }}
                       />
                       {city}
@@ -399,17 +415,21 @@ export default function TherapistOnboardingClient() {
                     placeholder="Type a city and press Enter"
                     value={locationInput}
                     onChange={(e) => setLocationInput(e.target.value)}
+                    disabled={selectedLocations.length >= 2}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
                         const val = locationInput.trim()
-                        if (val && !selectedLocations.includes(val)) setSelectedLocations((prev) => [...prev, val])
+                        if (val && !selectedLocations.includes(val) && selectedLocations.length < 2) setSelectedLocations((prev) => [...prev, val])
                         setLocationInput("")
                       }
                     }}
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Required. Select one or more cities, or add your own.</p>
+                <p className="text-xs text-gray-500 mt-1">Required. Select up to 2 cities, or add your own.</p>
+                {selectedLocations.length >= 2 && (
+                  <p className="text-xs text-amber-600 mt-1">You can select up to 2 locations.</p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="flex items-center gap-2 text-sm">
