@@ -266,7 +266,7 @@ CREATE TABLE public.therapists (
   bio_short text,
   bio_long text,
   gender USER-DEFINED,
-  religion text CHECK (religion IS NULL OR (religion = ANY (ARRAY['Christian'::text, 'Druze'::text, 'Sunni'::text, 'Shiite'::text]))),
+  religion text CHECK (religion IS NULL OR (religion = ANY (ARRAY['Christian'::text, 'Druze'::text, 'Sunni'::text, 'Shiite'::text, 'Other'::text]))),
   age_range text CHECK (age_range IS NULL OR (age_range = ANY (ARRAY['21-28'::text, '29-36'::text, '37-45'::text, '46-55'::text, '55+'::text]))),
   years_of_experience integer DEFAULT 0,
   lgbtq_friendly boolean DEFAULT false,

@@ -7,7 +7,7 @@ const schema = z.object({
   title: z.string().min(1),
   bio_short: z.string().min(1),
   bio_long: z.string().min(1),
-  religion: z.enum(["Christian","Druze","Sunni","Shiite"]),
+  religion: z.enum(["Christian","Druze","Sunni","Shiite","Other"]),
   age_range: z.enum(["21-28","29-36","37-45","46-55","55+"]),
   years_of_experience: z.number().int().min(0),
   languages: z.array(z.string().min(1)).min(1),
