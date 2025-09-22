@@ -312,21 +312,21 @@ export default function AdminCalendarPage() {
                 <div className="md:col-span-2">
                   <div className="text-xs text-gray-600 mb-1">Event Color</div>
                   <div className="flex flex-wrap items-center gap-4 sm:gap-5">
-                    {(["Primary","Success","Danger","Warning"]) as const}.map((key) => (
-                      <div key={key} className="n-chk">
-                        <div className={`form-check form-check-${String(key).toLowerCase()} form-check-inline`}>
-                          <label className="flex items-center text-sm text-gray-700 form-check-label" htmlFor={`adminColor${key}`}>
+                    {( ["Primary","Success","Danger","Warning"] as const ).map((color) => (
+                      <div key={color} className="n-chk">
+                        <div className={`form-check form-check-${String(color).toLowerCase()} form-check-inline`}>
+                          <label className="flex items-center text-sm text-gray-700 form-check-label" htmlFor={`adminColor${color}`}>
                             <span className="relative">
-                              <input className="sr-only form-check-input" type="radio" name="admin-event-level" value={key} id={`adminColor${key}`} checked={form.color_tag === key} onChange={() => setForm(f => ({ ...f, color_tag: key }))} />
+                              <input className="sr-only form-check-input" type="radio" name="admin-event-level" value={color} id={`adminColor${color}`} checked={form.color_tag === color} onChange={() => setForm(f => ({ ...f, color_tag: color }))} />
                               <span className="flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box">
-                                <span className={`h-2 w-2 rounded-full bg-white ${form.color_tag === key ? "block" : "hidden"}`}></span>
+                                <span className={`h-2 w-2 rounded-full bg-white ${form.color_tag === color ? "block" : "hidden"}`}></span>
                               </span>
                             </span>
-                            {key}
+                            {color}
                           </label>
                         </div>
                       </div>
-                    ))
+                    ))}
                   </div>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { DollarSign, AlertCircle, CheckCircle, Clock, Calendar } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -25,6 +26,7 @@ type TherapistPayment = {
   payment_completed_date?: string | null
   status: string
   admin_notes?: string | null
+  monthly_commission?: number
 }
 
 export default function AdminPaymentsPage() {
@@ -36,6 +38,13 @@ export default function AdminPaymentsPage() {
   const [notesDialog, setNotesDialog] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<TherapistPayment | null>(null)
   const [adminNotes, setAdminNotes] = useState("")
+  const [repeatDialog, setRepeatDialog] = useState(false)
+  const [repeatPayment, setRepeatPayment] = useState<TherapistPayment | null>(null)
+  const [repeatAmount, setRepeatAmount] = useState<string>("")
+  const [repeatMethod, setRepeatMethod] = useState<string>("")
+  const [repeatTxnId, setRepeatTxnId] = useState<string>("")
+  const [repeatNotes, setRepeatNotes] = useState<string>("")
+  const [submittingRepeat, setSubmittingRepeat] = useState<boolean>(false)
 
   const loadPayments = async () => {
     // Get current month payments
@@ -49,7 +58,7 @@ export default function AdminPaymentsPage() {
         *,
         therapists!inner(full_name)
       `)
-      .gte("payment_period_start", startOfMonth.toISOString())
+      .gte("payment_period_start", startOfMonth.toISOString().split('T')[0])
       .order("payment_due_date", { ascending: true })
 
     const formattedData = data?.map((p: any) => ({
@@ -57,7 +66,27 @@ export default function AdminPaymentsPage() {
       therapist_name: p.therapists?.full_name
     })) || []
 
-    setPayments(formattedData)
+    // Fetch monthly commission from therapist_metrics for current month
+    const metricsMonth = new Date().toISOString().slice(0, 7) + "-01"
+    const therapistIds = Array.from(new Set(formattedData.map((p: any) => p.therapist_id))).filter(Boolean)
+    let monthlyMap = new Map<string, number>()
+    if (therapistIds.length > 0) {
+      const { data: metrics } = await supabase
+        .from("therapist_metrics")
+        .select("therapist_id, commission_earned, month_year")
+        .eq("month_year", metricsMonth)
+        .in("therapist_id", therapistIds)
+      for (const m of metrics || []) {
+        monthlyMap.set(m.therapist_id, Number(m.commission_earned) || 0)
+      }
+    }
+
+    const withMonthly = formattedData.map((p: any) => ({
+      ...p,
+      monthly_commission: monthlyMap.get(p.therapist_id) ?? 0
+    }))
+
+    setPayments(withMonthly)
   }
 
   useEffect(() => {
@@ -125,7 +154,7 @@ export default function AdminPaymentsPage() {
           .from("sessions")
           .select("id, price")
           .eq("therapist_id", therapist.user_id)
-          .eq("status", "completed")
+          .in("status", ["scheduled", "completed"]) 
           .gte("session_date", periodStart.toISOString())
           .lt("session_date", endExclusive.toISOString())
 
@@ -185,6 +214,44 @@ export default function AdminPaymentsPage() {
       alert(`Failed to process payment status: ${msg}`)
     } finally {
       setProcessingPayment(null)
+    }
+  }
+
+  const openRepeatPaidDialog = (payment: TherapistPayment) => {
+    setRepeatPayment(payment)
+    setRepeatAmount("")
+    setRepeatMethod("")
+    setRepeatTxnId("")
+    setRepeatNotes("")
+    setRepeatDialog(true)
+  }
+
+  const submitRepeatPaid = async () => {
+    if (!repeatPayment) return
+    setSubmittingRepeat(true)
+    try {
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'mark_paid_again',
+          payment_id: repeatPayment.id,
+          therapist_id: repeatPayment.therapist_id,
+          amount: repeatAmount ? Number(repeatAmount) : null,
+          payment_method: repeatMethod || null,
+          transaction_id: repeatTxnId || null,
+          notes: repeatNotes || null
+        })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to process repeat payment')
+      await loadPayments()
+      setRepeatDialog(false)
+      setRepeatPayment(null)
+    } catch (e: any) {
+      alert(e?.message || 'Failed to process repeat payment')
+    } finally {
+      setSubmittingRepeat(false)
     }
   }
 
@@ -342,7 +409,7 @@ export default function AdminPaymentsPage() {
                       <TableCell className="whitespace-nowrap">
                         <div className="flex items-center gap-1 font-semibold">
                           <DollarSign className="h-4 w-4" />
-                          {payment.commission_amount}
+                          {payment.monthly_commission ?? payment.commission_amount}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -373,6 +440,15 @@ export default function AdminPaymentsPage() {
                               </Button>
                             )}
                           </>
+                        )}
+                        {payment.status === "completed" && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => openRepeatPaidDialog(payment)}
+                          >
+                            Mark Paid Again
+                          </Button>
                         )}
                         <Button 
                           size="sm" 
@@ -432,6 +508,83 @@ export default function AdminPaymentsPage() {
                 onClick={updateNotes}
               >
                 Save Notes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={repeatDialog} onOpenChange={setRepeatDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark Paid Again</DialogTitle>
+            <DialogDescription>
+              Confirm and record an additional paid action for this payment period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="repeat-amount">Amount (optional)</Label>
+                <Input
+                  id="repeat-amount"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="e.g. 150"
+                  value={repeatAmount}
+                  onChange={(e) => setRepeatAmount(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="repeat-method">Payment Method (optional)</Label>
+                <Input
+                  id="repeat-method"
+                  placeholder="e.g. bank transfer, cash"
+                  value={repeatMethod}
+                  onChange={(e) => setRepeatMethod(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="repeat-txn">Transaction ID (optional)</Label>
+                <Input
+                  id="repeat-txn"
+                  placeholder="e.g. TXN-12345"
+                  value={repeatTxnId}
+                  onChange={(e) => setRepeatTxnId(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="repeat-notes">Notes (optional)</Label>
+              <Textarea
+                id="repeat-notes"
+                placeholder="Add any notes about this additional payment..."
+                value={repeatNotes}
+                onChange={(e) => setRepeatNotes(e.target.value)}
+                className="mt-2"
+                rows={4}
+              />
+            </div>
+            <div className="text-sm text-gray-600">
+              This will also apply the ranking bonus again.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setRepeatDialog(false)}
+                disabled={submittingRepeat}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={submitRepeatPaid}
+                disabled={submittingRepeat}
+              >
+                {submittingRepeat ? 'Processing...' : 'Confirm Mark Paid Again'}
               </Button>
             </div>
           </div>

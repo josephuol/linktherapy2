@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         .from("sessions")
         .select("id", { count: "exact", head: true })
         .eq("therapist_id", p.therapist_id)
-        .eq("status", "completed")
+        .in("status", ["scheduled", "completed"]) 
         .gte("session_date", periodStartIso)
         .lt("session_date", endExclusiveIso)
       if (countErr) return NextResponse.json({ error: countErr.message }, { status: 400 })

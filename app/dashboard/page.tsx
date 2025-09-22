@@ -135,6 +135,19 @@ export default function TherapistDashboardPage() {
           () => { loadData(session.user.id) }
         )
         .subscribe()
+      const therapistsChannel = supabase
+        .channel('therapists_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'therapists',
+            filter: `user_id=eq.${session.user.id}`
+          },
+          () => { loadData(session.user.id) }
+        )
+        .subscribe()
       const metricsChannel = supabase
         .channel('metrics_changes')
         .on(
@@ -165,6 +178,7 @@ export default function TherapistDashboardPage() {
       return () => {
         supabase.removeChannel(contactRequestsChannel)
         supabase.removeChannel(sessionsChannel)
+        supabase.removeChannel(therapistsChannel)
         supabase.removeChannel(metricsChannel)
         supabase.removeChannel(notificationsChannel)
         clearInterval(refreshInterval)

@@ -10,8 +10,8 @@ CREATE TABLE public.admin_audit_logs (
   details jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT admin_audit_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT admin_audit_logs_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES auth.users(id),
-  CONSTRAINT admin_audit_logs_actor_admin_id_fkey FOREIGN KEY (actor_admin_id) REFERENCES public.admin_users(id)
+  CONSTRAINT admin_audit_logs_actor_admin_id_fkey FOREIGN KEY (actor_admin_id) REFERENCES public.admin_users(id),
+  CONSTRAINT admin_audit_logs_target_user_id_fkey FOREIGN KEY (target_user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.admin_users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -128,15 +128,16 @@ CREATE TABLE public.sessions (
   reschedule_reason text,
   rescheduled_by uuid,
   counts_for_scoring boolean NOT NULL DEFAULT true,
+  scheduled_points_awarded boolean NOT NULL DEFAULT false,
   was_rescheduled boolean NOT NULL DEFAULT false,
   rescheduled_from_date timestamp with time zone,
   rescheduled_to_date timestamp with time zone,
   color_tag text,
   CONSTRAINT sessions_pkey PRIMARY KEY (id),
-  CONSTRAINT sessions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
-  CONSTRAINT sessions_rescheduled_by_fkey FOREIGN KEY (rescheduled_by) REFERENCES auth.users(id),
   CONSTRAINT sessions_therapist_id_fkey FOREIGN KEY (therapist_id) REFERENCES public.therapists(user_id),
-  CONSTRAINT sessions_rescheduled_from_fkey FOREIGN KEY (rescheduled_from) REFERENCES public.sessions(id)
+  CONSTRAINT sessions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES public.patients(id),
+  CONSTRAINT sessions_rescheduled_from_fkey FOREIGN KEY (rescheduled_from) REFERENCES public.sessions(id),
+  CONSTRAINT sessions_rescheduled_by_fkey FOREIGN KEY (rescheduled_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.site_content (
   key text NOT NULL,
@@ -234,10 +235,24 @@ CREATE TABLE public.therapist_payments (
   payment_completed_date timestamp with time zone,
   status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'completed'::text, 'overdue'::text, 'suspended'::text])),
   admin_notes text,
+  last_paid_action_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT therapist_payments_pkey PRIMARY KEY (id),
   CONSTRAINT therapist_payments_therapist_id_fkey FOREIGN KEY (therapist_id) REFERENCES public.therapists(user_id)
+);
+CREATE TABLE public.therapist_payment_actions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  payment_id uuid NOT NULL REFERENCES public.therapist_payments(id) ON DELETE CASCADE,
+  therapist_id uuid NOT NULL REFERENCES public.therapists(user_id) ON DELETE CASCADE,
+  actor_user_id uuid REFERENCES auth.users(id),
+  action text NOT NULL DEFAULT 'paid_again' CHECK (action = ANY (ARRAY['paid','paid_again']::text[])),
+  amount numeric,
+  payment_method text,
+  transaction_id text,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT therapist_payment_actions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.therapist_ranking_history (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -287,6 +302,6 @@ CREATE TABLE public.therapists (
   npi text,
   timezone text,
   session_price_45_min numeric,
-  CONSTRAINT therapists_pkey PRIMARY KEY (user_id),I
+  CONSTRAINT therapists_pkey PRIMARY KEY (user_id),
   CONSTRAINT therapists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
