@@ -13,6 +13,8 @@ type Patient = {
   email: string | null
   phone: string | null
   last_session_at: string | null
+  last_therapist_id: string | null
+  last_therapist_name: string | null
 }
 
 export default function AdminPatientsPage() {
@@ -36,7 +38,7 @@ export default function AdminPatientsPage() {
       }
       const { data: sessions } = await supabase
         .from("sessions")
-        .select("id, client_name, client_email, client_phone, session_date")
+        .select("id, client_name, client_email, client_phone, session_date, therapist_id, therapist:therapists!sessions_therapist_id_fkey(user_id, full_name)")
         .order("session_date", { ascending: false })
 
       // Build unique patients list, deduplicated by email (case-insensitive)
@@ -50,6 +52,8 @@ export default function AdminPatientsPage() {
           email: s.client_email || null,
           phone: s.client_phone || null,
           last_session_at: s.session_date || null,
+          last_therapist_id: (s.therapist && (s.therapist as any).user_id) || s.therapist_id || null,
+          last_therapist_name: (s.therapist && (s.therapist as any).full_name) || null,
         }
         if (emailKey) {
           if (!byEmail.has(emailKey)) {
@@ -99,8 +103,8 @@ export default function AdminPatientsPage() {
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Name</TableHead>
                     <TableHead className="hidden sm:table-cell whitespace-nowrap">Email</TableHead>
-                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Phone</TableHead>
-                    <TableHead className="hidden md:table-cell whitespace-nowrap">Last session</TableHead>
+                    <TableHead className="whitespace-nowrap">Phone</TableHead>
+                    <TableHead className="hidden md:table-cell whitespace-nowrap">Last appointment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -108,8 +112,27 @@ export default function AdminPatientsPage() {
                     <TableRow key={p.id}>
                       <TableCell className="font-medium whitespace-nowrap">{p.full_name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{p.email || "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{p.phone || "—"}</TableCell>
-                      <TableCell className="hidden md:table-cell">{p.last_session_at ? new Date(p.last_session_at).toLocaleString() : "—"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{p.phone || "—"}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {p.last_session_at ? (
+                          <div>
+                            <div>{new Date(p.last_session_at).toLocaleString()}</div>
+                            {p.last_therapist_id && p.last_therapist_name ? (
+                              <div className="text-xs text-gray-600">
+                                with {" "}
+                                <button
+                                  className="text-[#056DBA] hover:underline"
+                                  onClick={() => router.push(`/admin/therapists/${p.last_therapist_id}`)}
+                                >
+                                  {p.last_therapist_name}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
