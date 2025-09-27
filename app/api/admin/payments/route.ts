@@ -11,9 +11,35 @@ export async function POST(req: Request) {
       const { payment_id, therapist_id } = body
       if (!payment_id || !therapist_id) return NextResponse.json({ error: "Missing fields" }, { status: 400 })
 
+      // Read current outstanding commission to log and reset
+      const { data: current, error: getErr } = await supabase
+        .from("therapist_payments")
+        .select("commission_amount")
+        .eq("id", payment_id)
+        .single()
+      if (getErr) return NextResponse.json({ error: getErr.message }, { status: 400 })
+
+      const prevOutstanding = Number(current?.commission_amount) || 0
+      const nowIso = new Date().toISOString()
+
+      // Insert primary paid action capturing previous outstanding
+      const { error: actErr } = await supabase.from("therapist_payment_actions").insert({
+        payment_id,
+        therapist_id,
+        actor_user_id: null,
+        action: "paid",
+        amount: prevOutstanding,
+        prev_commission_amount: prevOutstanding,
+        payment_method: null,
+        transaction_id: null,
+        notes: null,
+      })
+      if (actErr) return NextResponse.json({ error: actErr.message }, { status: 400 })
+
+      // Update payment: complete, zero outstanding, set last paid action timestamp
       const { error: upErr } = await supabase
         .from("therapist_payments")
-        .update({ status: "completed", payment_completed_date: new Date().toISOString() })
+        .update({ status: "completed", payment_completed_date: nowIso, last_paid_action_at: nowIso, commission_amount: 0 })
         .eq("id", payment_id)
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
 
@@ -24,6 +50,14 @@ export async function POST(req: Request) {
       })
       if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 400 })
 
+      // Audit
+      await supabase.from("admin_audit_logs").insert({
+        actor_admin_id: null,
+        action: "payments.mark_complete",
+        target_user_id: therapist_id,
+        details: { payment_id, prev_commission_amount: prevOutstanding }
+      })
+
       return NextResponse.json({ ok: true })
     }
 
@@ -31,12 +65,16 @@ export async function POST(req: Request) {
       const { payment_id, therapist_id, amount, payment_method, transaction_id, notes } = body
       if (!payment_id || !therapist_id) return NextResponse.json({ error: "Missing fields" }, { status: 400 })
 
-      // Do not overwrite payment_completed_date; just touch last_paid_action_at
-      const { error: upErr } = await supabase
+      // Read current outstanding commission to log and reset
+      const { data: current, error: getErr } = await supabase
         .from("therapist_payments")
-        .update({ last_paid_action_at: new Date().toISOString() })
+        .select("commission_amount")
         .eq("id", payment_id)
-      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
+        .single()
+      if (getErr) return NextResponse.json({ error: getErr.message }, { status: 400 })
+
+      const prevOutstanding = Number(current?.commission_amount) || 0
+      const nowIso = new Date().toISOString()
 
       // Insert payment action record
       const { error: actErr } = await supabase.from("therapist_payment_actions").insert({
@@ -45,11 +83,19 @@ export async function POST(req: Request) {
         actor_user_id: null,
         action: "paid_again",
         amount: amount ?? null,
+        prev_commission_amount: prevOutstanding,
         payment_method: payment_method || null,
         transaction_id: transaction_id || null,
         notes: notes || null,
       })
       if (actErr) return NextResponse.json({ error: actErr.message }, { status: 400 })
+
+      // Do not overwrite payment_completed_date; set last paid action and reset outstanding
+      const { error: upErr } = await supabase
+        .from("therapist_payments")
+        .update({ last_paid_action_at: nowIso, commission_amount: 0 })
+        .eq("id", payment_id)
+      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
 
       // Apply ranking bonus again for repeat paid action
       const { error: rpcErr } = await supabase.rpc('process_payment_status', {
@@ -64,7 +110,7 @@ export async function POST(req: Request) {
         actor_admin_id: null,
         action: "payments.mark_paid_again",
         target_user_id: therapist_id,
-        details: { payment_id, amount, payment_method, transaction_id, notes }
+        details: { payment_id, amount, payment_method, transaction_id, notes, prev_commission_amount: prevOutstanding }
       })
 
       return NextResponse.json({ ok: true })

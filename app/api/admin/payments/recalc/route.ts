@@ -34,30 +34,13 @@ export async function POST(req: Request) {
 
     const { start, end, endExclusive, dueDate } = getPeriodBounds(body.session_date)
 
-    // Count sessions (scheduled + completed) within the period by session_date
-    const { count, error: countErr } = await (supabase
-      .from("sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("therapist_id", body.therapist_id)
-      .in("status", ["scheduled", "completed"]) 
-      // use ISO strings for consistent timezone handling
-      .gte("session_date", start.toISOString())
-      .lt("session_date", endExclusive.toISOString())) as any
-
-    if (countErr) {
-      return NextResponse.json({ error: countErr.message }, { status: 400 })
-    }
-
-    const totalSessions = count || 0
-    const commission = totalSessions * ADMIN_COMMISSION_PER_SESSION
-
     const periodStartStr = start.toISOString().split('T')[0]
     const periodEndStr = end.toISOString().split('T')[0]
 
-    // Upsert therapist_payments
+    // Locate current period payment and consider last payout time for outstanding
     const { data: existing, error: existingErr } = await supabase
       .from("therapist_payments")
-      .select("id")
+      .select("id,last_paid_action_at")
       .eq("therapist_id", body.therapist_id)
       .eq("payment_period_start", periodStartStr)
       .maybeSingle()
@@ -65,6 +48,37 @@ export async function POST(req: Request) {
     if (existingErr) {
       return NextResponse.json({ error: existingErr.message }, { status: 400 })
     }
+
+    // Count all sessions for the period (for total_sessions)
+    const { count: allCount, error: allErr } = await (supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("therapist_id", body.therapist_id)
+      .in("status", ["scheduled", "completed"]) 
+      .gte("session_date", start.toISOString())
+      .lt("session_date", endExclusive.toISOString())) as any
+    if (allErr) {
+      return NextResponse.json({ error: allErr.message }, { status: 400 })
+    }
+
+    // Compute outstanding since last_paid_action_at (or period start)
+    const calcStartIso = existing?.last_paid_action_at && new Date(existing.last_paid_action_at) > start
+      ? new Date(existing.last_paid_action_at).toISOString()
+      : start.toISOString()
+
+    const { count: outCount, error: outErr } = await (supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("therapist_id", body.therapist_id)
+      .in("status", ["scheduled", "completed"]) 
+      .gte("session_date", calcStartIso)
+      .lt("session_date", endExclusive.toISOString())) as any
+    if (outErr) {
+      return NextResponse.json({ error: outErr.message }, { status: 400 })
+    }
+
+    const totalSessions = allCount || 0
+    const commission = (outCount || 0) * ADMIN_COMMISSION_PER_SESSION
 
     if (existing?.id) {
       const { error: upErr } = await supabase

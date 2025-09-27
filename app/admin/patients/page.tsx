@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabaseBrowser } from "@/lib/supabase-browser"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
@@ -13,9 +12,7 @@ type Patient = {
   full_name: string
   email: string | null
   phone: string | null
-  timezone: string | null
-  is_active: boolean
-  created_at: string
+  last_session_at: string | null
 }
 
 export default function AdminPatientsPage() {
@@ -24,8 +21,6 @@ export default function AdminPatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState("")
-  const [creating, setCreating] = useState(false)
-  const [newPatient, setNewPatient] = useState({ full_name: "", email: "", phone: "", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
 
   useEffect(() => {
     const init = async () => {
@@ -39,8 +34,33 @@ export default function AdminPatientsPage() {
         router.replace("/admin/login")
         return
       }
-      const { data } = await supabase.from("patients").select("id, full_name, email, phone, timezone, is_active, created_at").order("created_at", { ascending: false })
-      setPatients((data as Patient[]) ?? [])
+      const { data: sessions } = await supabase
+        .from("sessions")
+        .select("id, client_name, client_email, client_phone, session_date")
+        .order("session_date", { ascending: false })
+
+      // Build unique patients list, deduplicated by email (case-insensitive)
+      const byEmail = new Map<string, Patient>()
+      const noEmailPatients: Patient[] = []
+      for (const s of (sessions as any[]) || []) {
+        const emailKey = (s.client_email || "").trim().toLowerCase()
+        const p: Patient = {
+          id: emailKey ? emailKey : s.id,
+          full_name: s.client_name || "Unknown",
+          email: s.client_email || null,
+          phone: s.client_phone || null,
+          last_session_at: s.session_date || null,
+        }
+        if (emailKey) {
+          if (!byEmail.has(emailKey)) {
+            byEmail.set(emailKey, p)
+          }
+        } else {
+          noEmailPatients.push(p)
+        }
+      }
+      const aggregated = [...byEmail.values(), ...noEmailPatients]
+      setPatients(aggregated)
       setLoading(false)
     }
     init()
@@ -55,29 +75,6 @@ export default function AdminPatientsPage() {
       (p.phone || "").toLowerCase().includes(term)
     )
   }, [q, patients])
-
-  const createPatient = async () => {
-    if (!newPatient.full_name.trim()) return
-    setCreating(true)
-    try {
-      const { data, error } = await supabase.from("patients").insert({
-        full_name: newPatient.full_name.trim(),
-        email: newPatient.email || null,
-        phone: newPatient.phone || null,
-        timezone: newPatient.timezone || null,
-      }).select("id, full_name, email, phone, timezone, is_active, created_at").single()
-      if (error) throw error
-      setPatients(prev => [data as Patient, ...prev])
-      setNewPatient({ full_name: "", email: "", phone: "", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
-    } finally {
-      setCreating(false)
-    }
-  }
-
-  const toggleActive = async (id: string, is_active: boolean) => {
-    await supabase.from("patients").update({ is_active: !is_active }).eq("id", id)
-    setPatients(prev => prev.map(p => p.id === id ? { ...p, is_active: !is_active } : p))
-  }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
 
@@ -95,15 +92,6 @@ export default function AdminPatientsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <Input placeholder="Full name" value={newPatient.full_name} onChange={e => setNewPatient(p => ({ ...p, full_name: e.target.value }))} />
-              <Input placeholder="Email" value={newPatient.email} onChange={e => setNewPatient(p => ({ ...p, email: e.target.value }))} />
-              <Input placeholder="Phone" value={newPatient.phone} onChange={e => setNewPatient(p => ({ ...p, phone: e.target.value }))} />
-              <div className="flex gap-2">
-                <Input placeholder="Timezone" value={newPatient.timezone} onChange={e => setNewPatient(p => ({ ...p, timezone: e.target.value }))} />
-                <Button disabled={creating} className="bg-[#056DBA] hover:bg-[#045A99]" onClick={createPatient}>{creating ? "Adding…" : "Add"}</Button>
-              </div>
-            </div>
             <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="min-w-[760px]">
               <Table className="text-xs sm:text-sm">
@@ -112,9 +100,7 @@ export default function AdminPatientsPage() {
                     <TableHead className="whitespace-nowrap">Name</TableHead>
                     <TableHead className="hidden sm:table-cell whitespace-nowrap">Email</TableHead>
                     <TableHead className="hidden sm:table-cell whitespace-nowrap">Phone</TableHead>
-                    <TableHead className="hidden md:table-cell whitespace-nowrap">Timezone</TableHead>
-                    <TableHead className="whitespace-nowrap">Status</TableHead>
-                    <TableHead className="whitespace-nowrap">Actions</TableHead>
+                    <TableHead className="hidden md:table-cell whitespace-nowrap">Last session</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -123,13 +109,7 @@ export default function AdminPatientsPage() {
                       <TableCell className="font-medium whitespace-nowrap">{p.full_name}</TableCell>
                       <TableCell className="hidden sm:table-cell">{p.email || "—"}</TableCell>
                       <TableCell className="hidden sm:table-cell">{p.phone || "—"}</TableCell>
-                      <TableCell className="hidden md:table-cell">{p.timezone || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <span className="px-2 py-1 rounded-md text-xs bg-blue-50 text-[#056DBA] border border-blue-100">{p.is_active ? "active" : "inactive"}</span>
-                      </TableCell>
-                      <TableCell className="space-x-2 whitespace-nowrap">
-                        <Button size="sm" variant="outline" onClick={() => toggleActive(p.id, p.is_active)}>{p.is_active ? "Deactivate" : "Activate"}</Button>
-                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{p.last_session_at ? new Date(p.last_session_at).toLocaleString() : "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

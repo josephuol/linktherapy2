@@ -409,7 +409,7 @@ export default function AdminPaymentsPage() {
                       <TableCell className="whitespace-nowrap">
                         <div className="flex items-center gap-1 font-semibold">
                           <DollarSign className="h-4 w-4" />
-                          {payment.monthly_commission ?? payment.commission_amount}
+                          {payment.commission_amount}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
