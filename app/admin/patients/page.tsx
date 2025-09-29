@@ -64,6 +64,29 @@ export default function AdminPatientsPage() {
         }
       }
       const aggregated = [...byEmail.values(), ...noEmailPatients]
+      // Enrich with most recent phone from contact_requests (exact email match, prefer latest)
+      const emails = aggregated.map(p => p.email).filter((e): e is string => !!e)
+      if (emails.length > 0) {
+        const { data: crs } = await supabase
+          .from("contact_requests")
+          .select("client_email, client_phone, created_at")
+          .in("client_email", emails)
+          .order("created_at", { ascending: false })
+
+        const latestByEmail = new Map<string, string>()
+        for (const cr of (crs as any[]) || []) {
+          if (!cr.client_phone) continue
+          if (!latestByEmail.has(cr.client_email)) {
+            latestByEmail.set(cr.client_email, cr.client_phone)
+          }
+        }
+
+        for (const p of aggregated) {
+          if (p.email && latestByEmail.has(p.email)) {
+            p.phone = latestByEmail.get(p.email) || p.phone
+          }
+        }
+      }
       setPatients(aggregated)
       setLoading(false)
     }
