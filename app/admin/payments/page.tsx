@@ -47,46 +47,21 @@ export default function AdminPaymentsPage() {
   const [submittingRepeat, setSubmittingRepeat] = useState<boolean>(false)
 
   const loadPayments = async () => {
-    // Get current month payments
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-
-    const { data } = await supabase
-      .from("therapist_payments")
-      .select(`
-        *,
-        therapists!inner(full_name)
-      `)
-      .gte("payment_period_start", startOfMonth.toISOString().split('T')[0])
-      .order("payment_due_date", { ascending: true })
-
-    const formattedData = data?.map((p: any) => ({
-      ...p,
-      therapist_name: p.therapists?.full_name
-    })) || []
-
-    // Fetch monthly commission from therapist_metrics for current month
-    const metricsMonth = new Date().toISOString().slice(0, 7) + "-01"
-    const therapistIds = Array.from(new Set(formattedData.map((p: any) => p.therapist_id))).filter(Boolean)
-    let monthlyMap = new Map<string, number>()
-    if (therapistIds.length > 0) {
-      const { data: metrics } = await supabase
-        .from("therapist_metrics")
-        .select("therapist_id, commission_earned, month_year")
-        .eq("month_year", metricsMonth)
-        .in("therapist_id", therapistIds)
-      for (const m of metrics || []) {
-        monthlyMap.set(m.therapist_id, Number(m.commission_earned) || 0)
+    try {
+      // Fetch payments from API route (uses service role)
+      const res = await fetch('/api/admin/payments/list')
+      if (!res.ok) {
+        const error = await res.json()
+        console.error('Failed to load payments:', error)
+        setPayments([])
+        return
       }
+      const { payments: data } = await res.json()
+      setPayments(data || [])
+    } catch (error) {
+      console.error('Error loading payments:', error)
+      setPayments([])
     }
-
-    const withMonthly = formattedData.map((p: any) => ({
-      ...p,
-      monthly_commission: monthlyMap.get(p.therapist_id) ?? 0
-    }))
-
-    setPayments(withMonthly)
   }
 
   useEffect(() => {
@@ -103,78 +78,10 @@ export default function AdminPaymentsPage() {
   }, [])
 
   const checkAndCreatePaymentRecords = async () => {
-    // Create payment records for the current period if they don't exist
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-    
-    // First half of month (1st-15th)
-    if (now.getDate() >= 1 && now.getDate() <= 15) {
-      const periodStart = new Date(currentYear, currentMonth, 1)
-      const periodEnd = new Date(currentYear, currentMonth, 15)
-      const dueDate = new Date(currentYear, currentMonth, 4) // Due on 4th
-      
-      await createPaymentRecordsForPeriod(periodStart, periodEnd, dueDate)
-    }
-    
-    // Second half of month (16th-end)
-    if (now.getDate() >= 16) {
-      const periodStart = new Date(currentYear, currentMonth, 16)
-      const periodEnd = new Date(currentYear, currentMonth + 1, 0) // Last day of month
-      const dueDate = new Date(currentYear, currentMonth, 19) // Due on 19th
-      
-      await createPaymentRecordsForPeriod(periodStart, periodEnd, dueDate)
-    }
-  }
-
-  const createPaymentRecordsForPeriod = async (periodStart: Date, periodEnd: Date, dueDate: Date) => {
-    // Get all active therapists
-    const { data: therapists } = await supabase
-      .from("therapists")
-      .select("user_id")
-      .eq("status", "active")
-
-    if (!therapists) return
-
-    for (const therapist of therapists) {
-      // Check if payment record already exists
-      const { data: existing } = await supabase
-        .from("therapist_payments")
-        .select("id")
-        .eq("therapist_id", therapist.user_id)
-        .eq("payment_period_start", periodStart.toISOString().split('T')[0])
-        .maybeSingle()
-
-      if (!existing) {
-        // Calculate sessions and commission for the period
-        // Use inclusive end by querying with endExclusive = periodEnd + 1 day
-        const endExclusive = new Date(periodEnd)
-        endExclusive.setDate(endExclusive.getDate() + 1)
-        const { data: sessions } = await supabase
-          .from("sessions")
-          .select("id, price")
-          .eq("therapist_id", therapist.user_id)
-          .in("status", ["scheduled", "completed"]) 
-          .gte("session_date", periodStart.toISOString())
-          .lt("session_date", endExclusive.toISOString())
-
-        const totalSessions = sessions?.length || 0
-        const commission = totalSessions * ADMIN_COMMISSION_PER_SESSION
-
-        // Create payment record
-        await supabase
-          .from("therapist_payments")
-          .insert({
-            therapist_id: therapist.user_id,
-            payment_period_start: periodStart.toISOString().split('T')[0],
-            payment_period_end: periodEnd.toISOString().split('T')[0],
-            total_sessions: totalSessions,
-            commission_amount: commission,
-            payment_due_date: dueDate.toISOString(),
-            status: "pending"
-          })
-      }
-    }
+    // This functionality should ideally be done server-side
+    // For now, we'll skip auto-creation from client
+    // You can manually trigger backfill from API if needed
+    console.log('Payment record creation should be handled server-side')
   }
 
   const markPaymentComplete = async (payment: TherapistPayment) => {
