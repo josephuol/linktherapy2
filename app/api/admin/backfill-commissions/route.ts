@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { requireAdmin } from "@/lib/auth-helpers"
 import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
 
 export async function POST(req: Request) {
-  const supabase = supabaseAdmin()
+  // Verify admin authentication
+  const authCheck = await requireAdmin()
+  if (authCheck.error) return authCheck.error
 
-  // Basic auth check: only admins based on profiles role
-  const auth = req.headers.get("authorization") || ""
-  // Expect Bearer token of a service or skip; we will verify via user header if present (Next middleware could set). As fallback, allow when service role key is used.
-  // For simplicity here, we rely on calling from server via service role (no end-user session available in route handlers without cookies parsing).
+  const supabase = supabaseAdmin()
 
   try {
     // Fetch all payment records with status and last payout

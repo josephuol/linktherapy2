@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { requireAdmin } from "@/lib/auth-helpers"
 
 const querySchema = z.object({
   from: z.string().datetime().optional(),
@@ -8,7 +9,10 @@ const querySchema = z.object({
 })
 
 export async function GET(req: Request) {
-  // Optional: simple bearer admin check via Supabase user role - skipped here; rely on client page auth
+  // Verify admin authentication
+  const authCheck = await requireAdmin()
+  if (authCheck.error) return authCheck.error
+
   const url = new URL(req.url)
   const parsed = querySchema.safeParse({ from: url.searchParams.get("from") || undefined, to: url.searchParams.get("to") || undefined })
   if (!parsed.success) return NextResponse.json({ error: "Invalid query" }, { status: 400 })

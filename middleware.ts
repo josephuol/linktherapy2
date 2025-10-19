@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server"
+import { checkAdminInMiddleware } from "@/lib/auth-helpers"
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl
 
   // Normalize root /?code=... redirects to /auth/callback
@@ -24,11 +25,40 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Protect /admin routes - require admin role
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    const isAdmin = await checkAdminInMiddleware(req)
+    
+    if (!isAdmin) {
+      const url = req.nextUrl.clone()
+      url.pathname = "/admin/login"
+      url.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Protect /api/admin routes - require admin role
+  if (pathname.startsWith("/api/admin")) {
+    const isAdmin = await checkAdminInMiddleware(req)
+    
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Unauthorized - Admin access required" },
+        { status: 401 }
+      )
+    }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/", "/reset-password/confirm"],
+  matcher: [
+    "/", 
+    "/reset-password/confirm", 
+    "/admin/:path*",
+    "/api/admin/:path*"
+  ],
 }
 
 

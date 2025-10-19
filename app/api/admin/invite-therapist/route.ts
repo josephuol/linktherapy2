@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { requireAdmin } from "@/lib/auth-helpers"
 
 const schema = z.object({ email: z.string().email() })
 
 export async function POST(req: Request) {
+  // Verify admin authentication
+  const authCheck = await requireAdmin()
+  if (authCheck.error) return authCheck.error
+
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid email" }, { status: 400 })

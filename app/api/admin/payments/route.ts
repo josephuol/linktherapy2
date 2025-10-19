@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { requireAdmin } from "@/lib/auth-helpers"
 
 export async function POST(req: Request) {
+  // Verify admin authentication
+  const authCheck = await requireAdmin()
+  if (authCheck.error) return authCheck.error
+
   const supabase = supabaseAdmin()
   const body = await req.json().catch(() => null)
   if (!body || !body.action) return NextResponse.json({ error: "Invalid body" }, { status: 400 })
@@ -29,17 +34,17 @@ export async function POST(req: Request) {
         actor_user_id: null,
         action: "paid",
         amount: prevOutstanding,
-        prev_commission_amount: prevOutstanding,
         payment_method: null,
         transaction_id: null,
         notes: null,
       })
       if (actErr) return NextResponse.json({ error: actErr.message }, { status: 400 })
 
-      // Update payment: complete, zero outstanding, set last paid action timestamp
+      // Update payment: complete and set last paid action timestamp
+      // Keep the commission_amount so it shows in the payment history
       const { error: upErr } = await supabase
         .from("therapist_payments")
-        .update({ status: "completed", payment_completed_date: nowIso, last_paid_action_at: nowIso, commission_amount: 0 })
+        .update({ status: "completed", payment_completed_date: nowIso, last_paid_action_at: nowIso })
         .eq("id", payment_id)
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
 
@@ -52,10 +57,10 @@ export async function POST(req: Request) {
 
       // Audit
       await supabase.from("admin_audit_logs").insert({
-        actor_admin_id: null,
+        actor_admin_id: authCheck.user?.id || null,
         action: "payments.mark_complete",
         target_user_id: therapist_id,
-        details: { payment_id, prev_commission_amount: prevOutstanding }
+        details: { payment_id, amount: prevOutstanding }
       })
 
       return NextResponse.json({ ok: true })
@@ -83,17 +88,17 @@ export async function POST(req: Request) {
         actor_user_id: null,
         action: "paid_again",
         amount: amount ?? null,
-        prev_commission_amount: prevOutstanding,
         payment_method: payment_method || null,
         transaction_id: transaction_id || null,
         notes: notes || null,
       })
       if (actErr) return NextResponse.json({ error: actErr.message }, { status: 400 })
 
-      // Do not overwrite payment_completed_date; set last paid action and reset outstanding
+      // Do not overwrite payment_completed_date; set last paid action
+      // Keep the commission_amount so it shows in the payment history
       const { error: upErr } = await supabase
         .from("therapist_payments")
-        .update({ last_paid_action_at: nowIso, commission_amount: 0 })
+        .update({ last_paid_action_at: nowIso })
         .eq("id", payment_id)
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
 
@@ -107,10 +112,10 @@ export async function POST(req: Request) {
 
       // Audit log
       await supabase.from("admin_audit_logs").insert({
-        actor_admin_id: null,
+        actor_admin_id: authCheck.user?.id || null,
         action: "payments.mark_paid_again",
         target_user_id: therapist_id,
-        details: { payment_id, amount, payment_method, transaction_id, notes, prev_commission_amount: prevOutstanding }
+        details: { payment_id, amount, payment_method, transaction_id, notes }
       })
 
       return NextResponse.json({ ok: true })

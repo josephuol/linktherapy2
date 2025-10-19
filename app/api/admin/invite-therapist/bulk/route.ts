@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { requireAdmin } from "@/lib/auth-helpers"
 
 const schema = z.object({ emails: z.array(z.string().email()).max(30) })
 
 export async function POST(req: Request) {
+  // Verify admin authentication
+  const authCheck = await requireAdmin()
+  if (authCheck.error) return authCheck.error
+
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 })
@@ -28,7 +33,12 @@ export async function POST(req: Request) {
       try {
         const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
         await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
-        await supabase.from("admin_audit_logs").insert({ action: "invite.resend", target_email: email, details: { method: "bulk" } })
+        await supabase.from("admin_audit_logs").insert({ 
+          actor_admin_id: authCheck.user?.id || null,
+          action: "invite.resend", 
+          target_email: email, 
+          details: { method: "bulk" } 
+        })
         results.push({ email, status: "ok", message: "Resent invite" })
       } catch (e: any) {
         results.push({ email, status: "error", message: e?.message || "Failed to resend invite" })
@@ -71,7 +81,7 @@ export async function POST(req: Request) {
 
     // Audit log
     await supabase.from("admin_audit_logs").insert({
-      actor_admin_id: null,
+      actor_admin_id: authCheck.user?.id || null,
       action: "invite.create",
       target_email: email,
       target_user_id: user.id,
