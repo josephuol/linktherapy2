@@ -25,7 +25,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Protect /admin routes - require admin role
+  // Protect /admin PAGES - require admin role
+  // Note: We DON'T protect /api/admin routes here - they handle their own auth
   if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
     const isAdmin = await checkAdminInMiddleware(req)
     
@@ -37,18 +38,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Protect /api/admin routes - require admin role
-  if (pathname.startsWith("/api/admin")) {
-    const isAdmin = await checkAdminInMiddleware(req)
-    
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Unauthorized - Admin access required" },
-        { status: 401 }
-      )
-    }
-  }
-
   return NextResponse.next()
 }
 
@@ -56,8 +45,8 @@ export const config = {
   matcher: [
     "/", 
     "/reset-password/confirm", 
-    "/admin/:path*",
-    "/api/admin/:path*"
+    "/admin/:path*"
+    // Note: /api/admin routes handle their own auth with requireAdmin()
   ],
 }
 

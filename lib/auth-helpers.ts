@@ -7,58 +7,85 @@ import { NextRequest, NextResponse } from "next/server"
  * Use this in API routes and server components
  */
 export async function verifyAdminRole() {
-  const cookieStore = await cookies()
-  
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+  try {
+    const cookieStore = await cookies()
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
         },
-      },
+      }
+    )
+
+    // Get authenticated user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError) {
+      console.error('Auth error in verifyAdminRole:', userError.message)
+      return { 
+        authorized: false, 
+        user: null, 
+        error: `Authentication failed: ${userError.message}` 
+      }
     }
-  )
-
-  // Get authenticated user
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-  
-  if (userError || !user) {
-    return { 
-      authorized: false, 
-      user: null, 
-      error: "Not authenticated" 
+    
+    if (!user) {
+      return { 
+        authorized: false, 
+        user: null, 
+        error: "Not authenticated - no user session" 
+      }
     }
-  }
 
-  // Check if user has admin role
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single()
+    // Check if user has admin role
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single()
 
-  if (profileError || !profile) {
+    if (profileError) {
+      console.error('Profile fetch error:', profileError.message)
+      return { 
+        authorized: false, 
+        user: user, 
+        error: `Profile error: ${profileError.message}` 
+      }
+    }
+    
+    if (!profile) {
+      return { 
+        authorized: false, 
+        user: user, 
+        error: "Profile not found in database" 
+      }
+    }
+
+    if (profile.role !== "admin") {
+      return { 
+        authorized: false, 
+        user: user, 
+        error: `Insufficient permissions - user has role '${profile.role}', requires 'admin'` 
+      }
+    }
+
     return { 
-      authorized: false, 
+      authorized: true, 
       user: user, 
-      error: "Profile not found" 
+      error: null 
     }
-  }
-
-  if (profile.role !== "admin") {
-    return { 
-      authorized: false, 
-      user: user, 
-      error: "Insufficient permissions - admin role required" 
+  } catch (err) {
+    console.error('Unexpected error in verifyAdminRole:', err)
+    return {
+      authorized: false,
+      user: null,
+      error: `System error: ${err instanceof Error ? err.message : 'Unknown error'}`
     }
-  }
-
-  return { 
-    authorized: true, 
-    user: user, 
-    error: null 
   }
 }
 
@@ -98,28 +125,42 @@ export async function requireAdmin() {
  * Check admin role in middleware (for route protection)
  */
 export async function checkAdminInMiddleware(req: NextRequest) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return req.cookies.get(name)?.value
+          },
         },
-      },
+      }
+    )
+
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    // If there's an error or no user, return false
+    if (error || !user) {
+      console.log('Middleware auth check failed:', error?.message || 'No user')
+      return false
     }
-  )
 
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) return false
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single()
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single()
+    if (profileError || !profile) {
+      console.log('Middleware profile check failed:', profileError?.message || 'No profile')
+      return false
+    }
 
-  return profile?.role === "admin"
+    return profile?.role === "admin"
+  } catch (err) {
+    console.error('Middleware auth error:', err)
+    return false
+  }
 }
 
