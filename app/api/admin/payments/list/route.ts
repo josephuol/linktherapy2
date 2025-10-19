@@ -14,10 +14,11 @@ export async function GET(req: Request) {
   const supabase = supabaseAdmin()
 
   try {
-    // Get current month payments
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
+    // Get payments from last 6 months to current month
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
 
     const { data, error } = await supabase
       .from("therapist_payments")
@@ -25,8 +26,8 @@ export async function GET(req: Request) {
         *,
         therapists!inner(full_name)
       `)
-      .gte("payment_period_start", startOfMonth.toISOString().split('T')[0])
-      .order("payment_due_date", { ascending: true })
+      .gte("payment_period_start", sixMonthsAgo.toISOString().split('T')[0])
+      .order("payment_due_date", { ascending: false })
 
     if (error) {
       console.error("Error fetching payments:", error)
