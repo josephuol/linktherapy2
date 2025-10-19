@@ -14,11 +14,18 @@ export async function GET(req: Request) {
   const supabase = supabaseAdmin()
 
   try {
-    // Get payments from last 6 months to current month
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    sixMonthsAgo.setDate(1)
-    sixMonthsAgo.setHours(0, 0, 0, 0)
+    // Accept month parameter from query string (format: YYYY-MM)
+    const url = new URL(req.url)
+    const monthParam = url.searchParams.get('month')
+
+    // Default to current month if no parameter
+    const targetDate = monthParam ? new Date(monthParam + '-01') : new Date()
+    const year = targetDate.getFullYear()
+    const month = targetDate.getMonth()
+
+    // Get first and last day of the selected month
+    const monthStart = new Date(year, month, 1)
+    const monthEnd = new Date(year, month + 1, 0) // Last day of month
 
     const { data, error } = await supabase
       .from("therapist_payments")
@@ -26,7 +33,8 @@ export async function GET(req: Request) {
         *,
         therapists!inner(full_name)
       `)
-      .gte("payment_period_start", sixMonthsAgo.toISOString().split('T')[0])
+      .gte("payment_period_start", monthStart.toISOString().split('T')[0])
+      .lte("payment_period_start", monthEnd.toISOString().split('T')[0])
       .order("payment_due_date", { ascending: false })
 
     if (error) {

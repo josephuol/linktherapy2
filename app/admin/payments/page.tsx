@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { DollarSign, AlertCircle, CheckCircle, Clock, Calendar } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type TherapistPayment = {
   id: string
@@ -46,11 +47,28 @@ export default function AdminPaymentsPage() {
   const [repeatNotes, setRepeatNotes] = useState<string>("")
   const [submittingRepeat, setSubmittingRepeat] = useState<boolean>(false)
   const [creatingTest, setCreatingTest] = useState<boolean>(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  const generateMonthOptions = () => {
+    const options = []
+    const now = new Date()
+    // Generate last 12 months
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      const label = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+      options.push({ value, label })
+    }
+    return options
+  }
 
   const loadPayments = async () => {
     try {
       // Fetch payments from API route (uses service role)
-      const res = await fetch('/api/admin/payments/list')
+      const res = await fetch(`/api/admin/payments/list?month=${selectedMonth}`)
       if (!res.ok) {
         const error = await res.json()
         console.error('Failed to load payments:', error)
@@ -77,6 +95,12 @@ export default function AdminPaymentsPage() {
     }
     init()
   }, [])
+
+  useEffect(() => {
+    if (!loading) {
+      loadPayments()
+    }
+  }, [selectedMonth])
 
   const checkAndCreatePaymentRecords = async () => {
     // This functionality should ideally be done server-side
@@ -258,7 +282,19 @@ export default function AdminPaymentsPage() {
       <div className="container mx-auto px-4 max-w-7xl space-y-6">
         <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
           <h1 className="text-3xl md:text-4xl font-bold text-[#056DBA]">Payment Management</h1>
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {generateMonthOptions().map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button size="sm" variant="outline" onClick={() => loadPayments()} className="flex-1 sm:flex-none">Refresh</Button>
             <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99] flex-1 sm:flex-none" onClick={triggerBackfill}>Backfill</Button>
             <Button size="sm" className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none" onClick={createTestPayment} disabled={creatingTest}>

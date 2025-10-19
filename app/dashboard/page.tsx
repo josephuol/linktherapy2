@@ -245,6 +245,19 @@ export default function TherapistDashboardPage() {
     }
   }
 
+  const recalcPayment = async (sessionIso: string) => {
+    try {
+      if (!profile?.user_id || !sessionIso) return
+      await fetch('/api/admin/payments/recalc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ therapist_id: profile.user_id, session_date: sessionIso })
+      })
+    } catch (error) {
+      console.error('Error recalculating payment:', error)
+    }
+  }
+
   const handleAcceptRequest = async (requestId: string) => {
     try {
       const { error } = await supabase.from("contact_requests").update({ status: "accepted" }).eq("id", requestId)
@@ -288,6 +301,7 @@ export default function TherapistDashboardPage() {
         status: "scheduled"
       })
       if (sessionError) { throw new Error(`Failed to create session: ${sessionError.message}`) }
+      await recalcPayment(sessionIsoDateTime)
       await loadData(profile.user_id)
       toast({ title: "Session Scheduled", description: "Session has been created for this client. Your metrics will update shortly.", variant: "default" })
     } catch (error: any) {
@@ -310,6 +324,7 @@ export default function TherapistDashboardPage() {
         status: "scheduled"
       })
       if (sessionError) { throw new Error(`Failed to create new session: ${sessionError.message}`) }
+      await recalcPayment(sessionIsoDateTime)
       if (profile?.user_id) { await loadData(profile.user_id) }
       toast({ title: "Session Rescheduled", description: "A new session has been scheduled for this client.", variant: "default" })
     } catch (error: any) {
@@ -369,6 +384,7 @@ export default function TherapistDashboardPage() {
         rescheduled_by: profile.user_id,
       })
       if (insertErr) throw new Error(insertErr.message)
+      await recalcPayment(newIso)
       await loadData(profile.user_id)
       setRescheduleDialogOpen(false)
       setSelectedSession(null)
