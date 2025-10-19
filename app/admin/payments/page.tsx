@@ -45,6 +45,7 @@ export default function AdminPaymentsPage() {
   const [repeatTxnId, setRepeatTxnId] = useState<string>("")
   const [repeatNotes, setRepeatNotes] = useState<string>("")
   const [submittingRepeat, setSubmittingRepeat] = useState<boolean>(false)
+  const [creatingTest, setCreatingTest] = useState<boolean>(false)
 
   const loadPayments = async () => {
     try {
@@ -222,6 +223,34 @@ export default function AdminPaymentsPage() {
     }
   }
 
+  const createTestPayment = async () => {
+    setCreatingTest(true)
+    try {
+      const res = await fetch("/api/admin/payments/create-test", { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || "Failed to create test payment")
+      await loadPayments()
+      alert(`✅ ${json.message}\n\n${json.instructions}`)
+    } catch (e: any) {
+      alert(`❌ Failed to create test payment: ${e?.message || "Unknown error"}`)
+    } finally {
+      setCreatingTest(false)
+    }
+  }
+
+  const deleteTestPayments = async () => {
+    if (!confirm("Delete all test payments? This will remove any payments with 'TEST PAYMENT' in notes.")) return
+    try {
+      const res = await fetch("/api/admin/payments/delete-test", { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || "Failed to delete test payments")
+      await loadPayments()
+      alert(`✅ ${json.message}`)
+    } catch (e: any) {
+      alert(`❌ Failed to delete test payments: ${e?.message || "Unknown error"}`)
+    }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
 
   return (
@@ -229,9 +258,13 @@ export default function AdminPaymentsPage() {
       <div className="container mx-auto px-4 max-w-7xl space-y-6">
         <div className="flex items-center justify-between gap-4 flex-col sm:flex-row">
           <h1 className="text-3xl md:text-4xl font-bold text-[#056DBA]">Payment Management</h1>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button size="sm" variant="outline" onClick={() => loadPayments()} className="w-full sm:w-auto">Refresh</Button>
-            <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99] w-full sm:w-auto" onClick={triggerBackfill}>Backfill Commissions</Button>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button size="sm" variant="outline" onClick={() => loadPayments()} className="flex-1 sm:flex-none">Refresh</Button>
+            <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99] flex-1 sm:flex-none" onClick={triggerBackfill}>Backfill</Button>
+            <Button size="sm" className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none" onClick={createTestPayment} disabled={creatingTest}>
+              {creatingTest ? "Creating..." : "Create Test"}
+            </Button>
+            <Button size="sm" variant="destructive" className="flex-1 sm:flex-none" onClick={deleteTestPayments}>Delete Tests</Button>
           </div>
         </div>
         
