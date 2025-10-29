@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { sendContactRequestNotificationEmail } from "@/lib/email-service"
 
 const payloadSchema = z.object({
   therapist_id: z.string().uuid(),
@@ -29,6 +30,33 @@ export async function POST(req: Request) {
   }).select("*").single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Send email notification to therapist
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", parsed.data.therapist_id)
+      .single()
+
+    if (profile?.email) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      const dashboardUrl = `${siteUrl}/dashboard`
+      
+      await sendContactRequestNotificationEmail(
+        profile.email,
+        parsed.data.client_name,
+        parsed.data.client_email,
+        parsed.data.client_phone ?? null,
+        parsed.data.message ?? null,
+        dashboardUrl
+      )
+    }
+  } catch (emailError: any) {
+    // Log email error but don't fail the request
+    console.error("[Contact Request API] Failed to send notification email:", emailError?.message || "Unknown error")
+  }
+
   return NextResponse.json({ request: data })
 }
 
