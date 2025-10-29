@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { requireAdmin } from "@/lib/auth-helpers"
+import { sendTherapistInviteEmail } from "@/lib/email-service"
 
 const schema = z.object({ emails: z.array(z.string().email()).max(30) })
 
@@ -15,6 +16,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 })
 
   const supabase = supabaseAdmin()
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   const results: { email: string; status: "ok" | "error"; message?: string }[] = []
 
   for (const email of parsed.data.emails) {
@@ -31,8 +33,27 @@ export async function POST(req: Request) {
     if (prof) {
       // If a profile exists, attempt to resend invite email
       try {
-        const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
-        await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
+        const redirectTo = `${siteUrl}/auth/callback?next=/onboarding/therapist`
+        // Generate invite link without sending email
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+          type: "invite",
+          email: email,
+          options: {
+            redirectTo,
+          },
+        })
+        if (linkError) {
+          results.push({ email, status: "error", message: linkError.message })
+          continue
+        }
+        
+        // Send email via Resend
+        const emailResult = await sendTherapistInviteEmail(email, linkData.properties.action_link)
+        if (!emailResult.success) {
+          results.push({ email, status: "error", message: emailResult.error || "Failed to send email" })
+          continue
+        }
+        
         await supabase.from("admin_audit_logs").insert({ 
           actor_admin_id: authCheck.user?.id || null,
           action: "invite.resend", 
@@ -75,9 +96,26 @@ export async function POST(req: Request) {
       continue
     }
 
-    // Send invite email via Supabase built-in with redirect to onboarding
-    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?next=/onboarding/therapist`
-    await supabase.auth.admin.inviteUserByEmail(email, { redirectTo })
+    // Generate invite link and send via Resend
+    const redirectTo = `${siteUrl}/auth/callback?next=/onboarding/therapist`
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: "invite",
+      email: email,
+      options: {
+        redirectTo,
+      },
+    })
+    if (linkError) {
+      results.push({ email, status: "error", message: linkError.message })
+      continue
+    }
+
+    // Send invite email via Resend
+    const emailResult = await sendTherapistInviteEmail(email, linkData.properties.action_link)
+    if (!emailResult.success) {
+      results.push({ email, status: "error", message: emailResult.error || "Failed to send email" })
+      continue
+    }
 
     // Audit log
     await supabase.from("admin_audit_logs").insert({

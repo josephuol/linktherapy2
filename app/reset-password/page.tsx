@@ -1,14 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { supabaseImplicitBrowser } from "@/lib/supabase-browser"
 import InputField from "@/components/ui/input-field"
 import Label from "@/components/ui/label"
 import Button from "@/components/ui/button-admin"
 import Link from "next/link"
 
 export default function ResetPasswordRequestPage() {
-  const supabase = supabaseImplicitBrowser()
   const [email, setEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -19,15 +17,19 @@ export default function ResetPasswordRequestPage() {
     setError(null)
     setLoading(true)
     try {
-      const origin = typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL
-      // With implicit flow, the reset email will include tokens and can open anywhere
-      const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || origin}/reset-password/confirm`
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
-      if (error) {
-        setError(error.message)
+      const res = await fetch("/api/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || "Failed to send reset email")
         return
       }
       setSent(true)
+    } catch (err: any) {
+      setError(err?.message || "An error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
