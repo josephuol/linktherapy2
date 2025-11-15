@@ -270,3 +270,440 @@ ${dashboardUrl}
     return { success: false, error: error?.message || "Failed to send email" }
   }
 }
+
+/**
+ * Send payment reminder email (3 days before deadline)
+ */
+export async function sendPaymentReminderEmail(
+  therapistEmail: string,
+  therapistName: string,
+  paymentDueDate: Date,
+  commissionAmount: number,
+  paymentPeriod: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (IS_DEVELOPMENT) {
+      console.log(`[Email Service] Attempting to send payment reminder to: ${therapistEmail}`)
+    }
+
+    const formattedAmount = `$${commissionAmount.toFixed(2)}`
+    const formattedDate = paymentDueDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [therapistEmail],
+      subject: `Payment Reminder: ${formattedAmount} due ${formattedDate}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Payment Reminder</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #056DBA 0%, #0ea5e9 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">LinkTherapy</h1>
+          </div>
+          <div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827; margin-top: 0; font-size: 24px;">Payment Reminder</h2>
+            <p style="color: #4b5563; font-size: 16px;">Hello ${therapistName},</p>
+            <p style="color: #4b5563; font-size: 16px;">This is a friendly reminder that your payment for the period <strong>${paymentPeriod}</strong> is due in 3 days.</p>
+
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #056DBA;">
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Amount Due:</strong> <span style="color: #056DBA; font-size: 24px; font-weight: bold;">${formattedAmount}</span></p>
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Due Date:</strong> <span style="color: #4b5563;">${formattedDate}</span></p>
+              <p style="margin: 0;"><strong style="color: #111827;">Payment Period:</strong> <span style="color: #4b5563;">${paymentPeriod}</span></p>
+            </div>
+
+            <p style="color: #4b5563; font-size: 16px;">Please ensure your payment is submitted by the due date to maintain your account in good standing and avoid any ranking penalties.</p>
+
+            <div style="margin: 30px 0;">
+              <a href="${SITE_URL}/dashboard" style="display: inline-block; background: #056DBA; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">View Dashboard</a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have any questions or need assistance, please contact our support team.</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} LinkTherapy. All rights reserved.</p>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Payment Reminder
+
+Hello ${therapistName},
+
+This is a friendly reminder that your payment for the period ${paymentPeriod} is due in 3 days.
+
+Amount Due: ${formattedAmount}
+Due Date: ${formattedDate}
+Payment Period: ${paymentPeriod}
+
+Please ensure your payment is submitted by the due date to maintain your account in good standing and avoid any ranking penalties.
+
+View your dashboard: ${SITE_URL}/dashboard
+
+If you have any questions or need assistance, please contact our support team.
+
+© ${new Date().getFullYear()} LinkTherapy. All rights reserved.`,
+    })
+
+    if (error) {
+      console.error("[Email Service] Failed to send payment reminder:", error.message || "Unknown error")
+      if (IS_DEVELOPMENT) {
+        console.error("[Email Service] Full error details:", JSON.stringify(error, null, 2))
+      }
+      return { success: false, error: error.message || "Failed to send email" }
+    }
+
+    if (IS_DEVELOPMENT && data?.id) {
+      console.log(`[Email Service] Payment reminder sent successfully. ID: ${data.id}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[Email Service] Exception sending payment reminder:", error?.message || "Unknown error")
+    if (IS_DEVELOPMENT && error?.stack) {
+      console.error("[Email Service] Error stack:", error.stack)
+    }
+    return { success: false, error: error?.message || "Failed to send email" }
+  }
+}
+
+/**
+ * Send payment deadline email (at deadline)
+ */
+export async function sendPaymentDeadlineEmail(
+  therapistEmail: string,
+  therapistName: string,
+  commissionAmount: number,
+  paymentPeriod: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (IS_DEVELOPMENT) {
+      console.log(`[Email Service] Attempting to send payment deadline email to: ${therapistEmail}`)
+    }
+
+    const formattedAmount = `$${commissionAmount.toFixed(2)}`
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [therapistEmail],
+      subject: `URGENT: Payment Due Today - ${formattedAmount}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Payment Due Today</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">LinkTherapy</h1>
+          </div>
+          <div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #dc2626; margin-top: 0; font-size: 24px;">⚠️ Payment Due Today</h2>
+            <p style="color: #4b5563; font-size: 16px;">Hello ${therapistName},</p>
+            <p style="color: #4b5563; font-size: 16px;">Your payment for the period <strong>${paymentPeriod}</strong> is <strong style="color: #dc2626;">due today</strong>.</p>
+
+            <div style="background: #fef2f2; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #dc2626;">
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Amount Due:</strong> <span style="color: #dc2626; font-size: 24px; font-weight: bold;">${formattedAmount}</span></p>
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Payment Period:</strong> <span style="color: #4b5563;">${paymentPeriod}</span></p>
+              <p style="margin: 0; color: #dc2626; font-weight: 600;">⏰ Due: Today</p>
+            </div>
+
+            <div style="background: #fff7ed; padding: 16px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #f97316;">
+              <p style="color: #9a3412; font-size: 14px; margin: 0;"><strong>⚠️ Important:</strong> Late payments may result in account suspension and a ranking penalty of -10 points.</p>
+            </div>
+
+            <p style="color: #4b5563; font-size: 16px;">Please submit your payment as soon as possible to avoid any account issues.</p>
+
+            <div style="margin: 30px 0;">
+              <a href="${SITE_URL}/dashboard" style="display: inline-block; background: #dc2626; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Submit Payment Now</a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have already submitted payment, please disregard this notice. If you need assistance, contact our support team immediately.</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} LinkTherapy. All rights reserved.</p>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `⚠️ URGENT: Payment Due Today
+
+Hello ${therapistName},
+
+Your payment for the period ${paymentPeriod} is DUE TODAY.
+
+Amount Due: ${formattedAmount}
+Payment Period: ${paymentPeriod}
+Due: Today
+
+⚠️ IMPORTANT: Late payments may result in account suspension and a ranking penalty of -10 points.
+
+Please submit your payment as soon as possible to avoid any account issues.
+
+View your dashboard: ${SITE_URL}/dashboard
+
+If you have already submitted payment, please disregard this notice. If you need assistance, contact our support team immediately.
+
+© ${new Date().getFullYear()} LinkTherapy. All rights reserved.`,
+    })
+
+    if (error) {
+      console.error("[Email Service] Failed to send payment deadline email:", error.message || "Unknown error")
+      if (IS_DEVELOPMENT) {
+        console.error("[Email Service] Full error details:", JSON.stringify(error, null, 2))
+      }
+      return { success: false, error: error.message || "Failed to send email" }
+    }
+
+    if (IS_DEVELOPMENT && data?.id) {
+      console.log(`[Email Service] Payment deadline email sent successfully. ID: ${data.id}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[Email Service] Exception sending payment deadline email:", error?.message || "Unknown error")
+    if (IS_DEVELOPMENT && error?.stack) {
+      console.error("[Email Service] Error stack:", error.stack)
+    }
+    return { success: false, error: error?.message || "Failed to send email" }
+  }
+}
+
+/**
+ * Send payment warning email (3 days after deadline)
+ */
+export async function sendPaymentWarningEmail(
+  therapistEmail: string,
+  therapistName: string,
+  commissionAmount: number,
+  paymentPeriod: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (IS_DEVELOPMENT) {
+      console.log(`[Email Service] Attempting to send payment warning email to: ${therapistEmail}`)
+    }
+
+    const formattedAmount = `$${commissionAmount.toFixed(2)}`
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [therapistEmail],
+      subject: `URGENT: Overdue Payment - Account Suspension in 3 Days`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Overdue Payment Warning</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">LinkTherapy</h1>
+          </div>
+          <div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #dc2626; margin-top: 0; font-size: 24px;">🚨 Overdue Payment - Action Required</h2>
+            <p style="color: #4b5563; font-size: 16px;">Hello ${therapistName},</p>
+            <p style="color: #4b5563; font-size: 16px;">Your payment for the period <strong>${paymentPeriod}</strong> is now <strong style="color: #dc2626;">3 days overdue</strong>.</p>
+
+            <div style="background: #fef2f2; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #dc2626;">
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Overdue Amount:</strong> <span style="color: #dc2626; font-size: 24px; font-weight: bold;">${formattedAmount}</span></p>
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Payment Period:</strong> <span style="color: #4b5563;">${paymentPeriod}</span></p>
+              <p style="margin: 0; color: #dc2626; font-weight: 600;">🚨 Status: 3 Days Overdue</p>
+            </div>
+
+            <div style="background: #7f1d1d; color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold;">⚠️ URGENT ACTION REQUIRED</p>
+              <p style="margin: 0; font-size: 14px;">Your account will be <strong>suspended in 3 days</strong> if payment is not received. Please contact us immediately to arrange payment.</p>
+            </div>
+
+            <p style="color: #4b5563; font-size: 16px;">Please contact our support team immediately to provide payment and avoid account suspension. We understand that circumstances can arise, and we're here to help find a solution.</p>
+
+            <div style="background: #f9fafb; padding: 16px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0; font-weight: 600; color: #111827;">Contact Support:</p>
+              <p style="margin: 0; color: #4b5563; font-size: 14px;">Email: support@linktherapy.org</p>
+            </div>
+
+            <div style="margin: 30px 0;">
+              <a href="${SITE_URL}/dashboard" style="display: inline-block; background: #dc2626; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Contact Support Now</a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">If you have already submitted payment or contacted us, please disregard this notice.</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} LinkTherapy. All rights reserved.</p>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `🚨 URGENT: Overdue Payment - Account Suspension in 3 Days
+
+Hello ${therapistName},
+
+Your payment for the period ${paymentPeriod} is now 3 DAYS OVERDUE.
+
+Overdue Amount: ${formattedAmount}
+Payment Period: ${paymentPeriod}
+Status: 3 Days Overdue
+
+⚠️ URGENT ACTION REQUIRED
+Your account will be SUSPENDED IN 3 DAYS if payment is not received.
+
+Please contact our support team immediately to provide payment and avoid account suspension. We understand that circumstances can arise, and we're here to help find a solution.
+
+Contact Support:
+Email: support@linktherapy.org
+
+View your dashboard: ${SITE_URL}/dashboard
+
+If you have already submitted payment or contacted us, please disregard this notice.
+
+© ${new Date().getFullYear()} LinkTherapy. All rights reserved.`,
+    })
+
+    if (error) {
+      console.error("[Email Service] Failed to send payment warning email:", error.message || "Unknown error")
+      if (IS_DEVELOPMENT) {
+        console.error("[Email Service] Full error details:", JSON.stringify(error, null, 2))
+      }
+      return { success: false, error: error.message || "Failed to send email" }
+    }
+
+    if (IS_DEVELOPMENT && data?.id) {
+      console.log(`[Email Service] Payment warning email sent successfully. ID: ${data.id}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[Email Service] Exception sending payment warning email:", error?.message || "Unknown error")
+    if (IS_DEVELOPMENT && error?.stack) {
+      console.error("[Email Service] Error stack:", error.stack)
+    }
+    return { success: false, error: error?.message || "Failed to send email" }
+  }
+}
+
+/**
+ * Send account suspension email (6 days after deadline)
+ */
+export async function sendAccountSuspensionEmail(
+  therapistEmail: string,
+  therapistName: string,
+  commissionAmount: number,
+  paymentPeriod: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (IS_DEVELOPMENT) {
+      console.log(`[Email Service] Attempting to send account suspension email to: ${therapistEmail}`)
+    }
+
+    const formattedAmount = `$${commissionAmount.toFixed(2)}`
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [therapistEmail],
+      subject: `Account Suspended - Immediate Action Required`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Account Suspended</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">LinkTherapy</h1>
+          </div>
+          <div style="background: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #7f1d1d; margin-top: 0; font-size: 24px;">🛑 Account Suspended</h2>
+            <p style="color: #4b5563; font-size: 16px;">Hello ${therapistName},</p>
+            <p style="color: #4b5563; font-size: 16px;">Your LinkTherapy account has been <strong style="color: #dc2626;">suspended</strong> due to non-payment for the period <strong>${paymentPeriod}</strong>.</p>
+
+            <div style="background: #fef2f2; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #7f1d1d;">
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Outstanding Amount:</strong> <span style="color: #dc2626; font-size: 24px; font-weight: bold;">${formattedAmount}</span></p>
+              <p style="margin: 0 0 10px 0;"><strong style="color: #111827;">Payment Period:</strong> <span style="color: #4b5563;">${paymentPeriod}</span></p>
+              <p style="margin: 0; color: #7f1d1d; font-weight: 600;">🛑 Status: Account Suspended</p>
+            </div>
+
+            <div style="background: #450a0a; color: white; padding: 20px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold;">What This Means:</p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                <li style="margin-bottom: 8px;">Your profile is no longer visible to potential clients</li>
+                <li style="margin-bottom: 8px;">You cannot receive new contact requests</li>
+                <li style="margin-bottom: 8px;">Your therapist ranking has been set to 0</li>
+              </ul>
+            </div>
+
+            <p style="color: #4b5563; font-size: 16px; font-weight: 600;">To reactivate your account, please contact our support team immediately to arrange payment.</p>
+
+            <div style="background: #f9fafb; padding: 16px; border-radius: 6px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0; font-weight: 600; color: #111827;">Contact Support:</p>
+              <p style="margin: 0; color: #4b5563; font-size: 14px;">Email: support@linktherapy.org</p>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">We value your partnership and hope to resolve this matter quickly. Our support team is ready to assist you.</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} LinkTherapy. All rights reserved.</p>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `🛑 Account Suspended - Immediate Action Required
+
+Hello ${therapistName},
+
+Your LinkTherapy account has been SUSPENDED due to non-payment for the period ${paymentPeriod}.
+
+Outstanding Amount: ${formattedAmount}
+Payment Period: ${paymentPeriod}
+Status: Account Suspended
+
+What This Means:
+- Your profile is no longer visible to potential clients
+- You cannot receive new contact requests
+- Your therapist ranking has been set to 0
+
+To reactivate your account, please contact our support team immediately to arrange payment.
+
+Contact Support:
+Email: support@linktherapy.org
+
+We value your partnership and hope to resolve this matter quickly. Our support team is ready to assist you.
+
+© ${new Date().getFullYear()} LinkTherapy. All rights reserved.`,
+    })
+
+    if (error) {
+      console.error("[Email Service] Failed to send account suspension email:", error.message || "Unknown error")
+      if (IS_DEVELOPMENT) {
+        console.error("[Email Service] Full error details:", JSON.stringify(error, null, 2))
+      }
+      return { success: false, error: error.message || "Failed to send email" }
+    }
+
+    if (IS_DEVELOPMENT && data?.id) {
+      console.log(`[Email Service] Account suspension email sent successfully. ID: ${data.id}`)
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[Email Service] Exception sending account suspension email:", error?.message || "Unknown error")
+    if (IS_DEVELOPMENT && error?.stack) {
+      console.error("[Email Service] Error stack:", error.stack)
+    }
+    return { success: false, error: error?.message || "Failed to send email" }
+  }
+}

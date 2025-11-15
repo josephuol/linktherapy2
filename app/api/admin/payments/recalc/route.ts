@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
+import { schedulePaymentNotifications } from "@/lib/qstash-service"
 
 function getPeriodBounds(dateIso: string) {
   const date = new Date(dateIso)
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
         .eq("id", existing.id)
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
     } else {
-      const { error: insErr } = await supabase
+      const { data: newPayment, error: insErr } = await supabase
         .from("therapist_payments")
         .insert({
           therapist_id: body.therapist_id,
@@ -102,7 +103,24 @@ export async function POST(req: Request) {
           payment_due_date: dueDate.toISOString(),
           status: "pending",
         })
+        .select("id")
+        .single()
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
+
+      // Schedule payment notifications via Qstash
+      if (newPayment?.id) {
+        const scheduleResult = await schedulePaymentNotifications(
+          newPayment.id,
+          body.therapist_id,
+          dueDate
+        )
+        if (!scheduleResult.success) {
+          console.error("[Payment Recalc] Failed to schedule notifications:", scheduleResult.error)
+          // Don't fail the request - payment was created successfully
+        } else {
+          console.log(`[Payment Recalc] Scheduled notifications for payment ${newPayment.id}`)
+        }
+      }
     }
 
     return NextResponse.json({ ok: true, total_sessions: totalSessions, commission_amount: commission, period_start: periodStartStr, period_end: periodEndStr })
