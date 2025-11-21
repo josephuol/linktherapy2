@@ -9,10 +9,15 @@ if (!RESEND_API_KEY) {
 
 const resend = new Resend(RESEND_API_KEY)
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "LinkTherapy <noreply@linktherapy.org>"
-
 const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
+
+// Site URL for email links - critical for production
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+if (!process.env.NEXT_PUBLIC_SITE_URL && !IS_DEVELOPMENT) {
+  console.warn("[Email Service] WARNING: NEXT_PUBLIC_SITE_URL is not set. Email links may not work correctly in production.")
+}
+
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "LinkTherapy <noreply@linktherapy.org>"
 
 /**
  * Send therapist invitation email

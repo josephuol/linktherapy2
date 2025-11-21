@@ -202,7 +202,10 @@ export default function TherapistOnboardingClient() {
           religion,
           age_range: ageRange,
           years_of_experience: typeof yearsOfExperience === "number" ? yearsOfExperience : Number(yearsOfExperience || 0),
-          languages: languages.split(",").map((s) => s.trim()).filter(Boolean),
+          languages: languages
+            .split(/[,;]|\band\b/i)
+            .map((s) => s.trim())
+            .filter(Boolean),
           interests,
           session_price_45_min: typeof price45 === "number" ? price45 : Number(price45 || 0),
           profile_image_url: profileImageUrl,
@@ -327,7 +330,8 @@ export default function TherapistOnboardingClient() {
               </div>
               <div className="md:col-span-2">
                 <Label htmlFor="languages">Languages</Label>
-                <Input id="languages" placeholder="Comma-separated (e.g., Arabic, English)" value={languages} onChange={(e) => setLanguages(e.target.value)} />
+                <Input id="languages" placeholder="e.g., Arabic, English, French" value={languages} onChange={(e) => setLanguages(e.target.value)} />
+                <p className="text-xs text-gray-500 mt-1">Separate languages with commas, semicolons, or &quot;and&quot; (e.g., &quot;English, Arabic&quot; or &quot;English and French&quot;)</p>
               </div>
               {/*
               <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">

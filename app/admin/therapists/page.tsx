@@ -10,17 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Minus, Trophy, Activity } from "lucide-react"
+import { Plus, Minus, Trophy, Activity, RefreshCw, Mail } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 
-type Therapist = { 
-  user_id: string; 
-  email?: string; 
-  full_name?: string | null; 
-  title?: string | null; 
+type Therapist = {
+  user_id: string;
+  email?: string;
+  full_name?: string | null;
+  title?: string | null;
   status?: string | null;
   ranking_points?: number | null;
   total_sessions?: number | null;
+}
+
+type PendingInvite = {
+  id: string;
+  email: string;
+  created_at: string;
+  email_confirmed_at: string | null;
 }
 
 export default function AdminTherapistsPage() {
@@ -35,6 +43,10 @@ export default function AdminTherapistsPage() {
   const [pointsAdjustment, setPointsAdjustment] = useState("")
   const [adjustmentReason, setAdjustmentReason] = useState("")
   const [adjusting, setAdjusting] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  const [resendEmail, setResendEmail] = useState("")
+  const [resendDialog, setResendDialog] = useState(false)
+  const [resending, setResending] = useState(false)
 
   const loadTherapists = async () => {
     const { data } = await supabase
@@ -69,12 +81,52 @@ export default function AdminTherapistsPage() {
         const j = await res.json().catch(() => ({}))
         throw new Error(j.error || "Failed to send invite")
       }
+      toast.success("Invitation sent successfully")
       setInviteEmail("")
       await loadTherapists()
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      toast.error(e.message || "Failed to send invitation")
     } finally {
       setInviting(false)
+    }
+  }
+
+  const resendInvitation = async (email?: string) => {
+    const targetEmail = email || resendEmail.trim()
+    if (!targetEmail) return
+
+    setResending(true)
+    if (email) setResendingEmail(email)
+
+    try {
+      const res = await fetch("/api/admin/resend-invitation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail })
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.error === "User not found") {
+          toast.error("No pending invitation found for this email. Use 'Invite' to send a new invitation.")
+        } else if (data.error === "User already confirmed") {
+          toast.error("This user has already completed registration. They can use 'Forgot Password' to regain access.")
+        } else {
+          throw new Error(data.error || "Failed to resend invitation")
+        }
+        return
+      }
+
+      toast.success("Invitation resent successfully!")
+      setResendDialog(false)
+      setResendEmail("")
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to resend invitation")
+    } finally {
+      setResending(false)
+      setResendingEmail(null)
     }
   }
 
@@ -145,6 +197,10 @@ export default function AdminTherapistsPage() {
               <div className="flex gap-2 w-full sm:w-auto">
                 <Input className="flex-1" placeholder="Therapist email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
                 <Button disabled={inviting} className="bg-[#056DBA] hover:bg-[#045A99] whitespace-nowrap" onClick={inviteTherapist}>{inviting ? "Inviting…" : "Invite"}</Button>
+                <Button variant="outline" className="whitespace-nowrap border-[#056DBA] text-[#056DBA]" onClick={() => setResendDialog(true)}>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Resend
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -307,6 +363,66 @@ export default function AdminTherapistsPage() {
                 disabled={!pointsAdjustment || !adjustmentReason.trim() || adjusting}
               >
                 {adjusting ? "Adjusting..." : "Apply Adjustment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resend Invitation Dialog */}
+      <Dialog open={resendDialog} onOpenChange={setResendDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resend Invitation</DialogTitle>
+            <DialogDescription>
+              Resend the invitation email to a therapist who hasn&apos;t completed their registration.
+              This will generate a fresh invitation link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <Label htmlFor="resend-email">Therapist Email</Label>
+              <Input
+                id="resend-email"
+                type="email"
+                placeholder="therapist@example.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <Mail className="h-4 w-4 inline mr-1" />
+                The therapist will receive a new invitation email with a fresh link that won&apos;t expire after one click.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setResendDialog(false)
+                  setResendEmail("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-[#056DBA] hover:bg-[#045A99]"
+                onClick={() => resendInvitation()}
+                disabled={!resendEmail.trim() || resending}
+              >
+                {resending ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Resend Invitation
+                  </>
+                )}
               </Button>
             </div>
           </div>

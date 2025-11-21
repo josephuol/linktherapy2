@@ -3,15 +3,18 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, X, Sparkles } from "lucide-react"
+import { Menu, X, Sparkles, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import logoHorizontal from "@/app/images/logo-horizontal.png"
 import logoHorizontalWhite from "@/app/images/logo-horizontal-white.png"
+import { supabaseBrowser } from "@/lib/supabase-browser"
 
 export function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const pathname = usePathname()
   const isHomePage = pathname === "/"
 
@@ -22,6 +25,35 @@ export function Navigation() {
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Check authentication state
+  useEffect(() => {
+    const supabase = supabaseBrowser()
+
+    // Check initial auth state
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        setIsAuthenticated(!!session)
+      } catch (error) {
+        console.error("Error checking auth:", error)
+        setIsAuthenticated(false)
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   // Determine background and text colors based on page and scroll state
@@ -97,8 +129,17 @@ export function Navigation() {
               <Button
                 className={`transition-all duration-300 hover:scale-105 ${styles.buttonStyle}`}
               >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Login
+                {isAuthenticated ? (
+                  <>
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Login
+                  </>
+                )}
               </Button>
             </Link>
           </div>
@@ -148,8 +189,17 @@ export function Navigation() {
                 <Button
                   className="bg-[#056DBA] hover:bg-[#045A99] text-white w-fit transition-all duration-300 hover:scale-105"
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Login
+                  {isAuthenticated ? (
+                    <>
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Login
+                    </>
+                  )}
                 </Button>
               </Link>
             </div>

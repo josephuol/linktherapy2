@@ -40,7 +40,13 @@ export async function POST(req: Request) {
       .single()
 
     if (profile?.email) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      // Get site URL from env var, or derive from request headers as fallback
+      let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      if (!siteUrl) {
+        const host = req.headers.get('host')
+        const protocol = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
+        siteUrl = host ? `${protocol}://${host}` : "http://localhost:3000"
+      }
       const dashboardUrl = `${siteUrl}/dashboard`
       
       await sendContactRequestNotificationEmail(
