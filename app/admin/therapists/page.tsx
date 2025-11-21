@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Minus, Trophy, Activity, RefreshCw, Mail } from "lucide-react"
+import { Plus, Minus, Trophy, Activity, RefreshCw, Mail, Trash2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
@@ -47,6 +47,9 @@ export default function AdminTherapistsPage() {
   const [resendEmail, setResendEmail] = useState("")
   const [resendDialog, setResendDialog] = useState(false)
   const [resending, setResending] = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [therapistToDelete, setTherapistToDelete] = useState<Therapist | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadTherapists = async () => {
     const { data } = await supabase
@@ -184,6 +187,39 @@ export default function AdminTherapistsPage() {
     setAdjustPointsDialog(true)
   }
 
+  const openDeleteDialog = (therapist: Therapist) => {
+    setTherapistToDelete(therapist)
+    setDeleteDialog(true)
+  }
+
+  const handleDeleteTherapist = async () => {
+    if (!therapistToDelete) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/admin/delete-therapist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: therapistToDelete.user_id })
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete therapist")
+      }
+
+      toast.success("Therapist account deleted successfully. You can now invite this email again.")
+      setDeleteDialog(false)
+      setTherapistToDelete(null)
+      await loadTherapists()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to delete therapist")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
 
   return (
@@ -272,9 +308,9 @@ export default function AdminTherapistsPage() {
                         </span>
                       </TableCell>
                       <TableCell className="space-x-2 whitespace-nowrap">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => openAdjustDialog(t)}
                           className="border-[#056DBA] text-[#056DBA] hover:bg-[#056DBA] hover:text-white"
                         >
@@ -283,6 +319,14 @@ export default function AdminTherapistsPage() {
                         <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99]" onClick={() => updateStatus(t.user_id, 'active')}>Activate</Button>
                         <Button size="sm" variant="outline" onClick={() => updateStatus(t.user_id, 'warning')}>Warn</Button>
                         <Button size="sm" variant="destructive" onClick={() => updateStatus(t.user_id, 'suspended')}>Suspend</Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => openDeleteDialog(t)}
+                          className="bg-red-700 hover:bg-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -421,6 +465,69 @@ export default function AdminTherapistsPage() {
                   <>
                     <Mail className="h-4 w-4 mr-2" />
                     Resend Invitation
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Therapist Confirmation Dialog */}
+      <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Therapist Account
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the therapist account and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium mb-2">
+                You are about to delete:
+              </p>
+              <p className="text-sm text-red-700">
+                <strong>{therapistToDelete?.full_name || "Unknown"}</strong>
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                This will delete all sessions, contact requests, payments, metrics, and remove the user from the system.
+              </p>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                After deletion, you can invite the same email address again to create a new account.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialog(false)
+                  setTherapistToDelete(null)
+                }}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="bg-red-700 hover:bg-red-800"
+                onClick={handleDeleteTherapist}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Permanently
                   </>
                 )}
               </Button>
