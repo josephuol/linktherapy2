@@ -111,12 +111,14 @@ export function Footer() {
           <div>
             <h3 className="font-bold mb-6 text-lg">Resources & Legal</h3>
             <div className="space-y-3">
+              {/* TODO: Create /about page
               <Link
                 href="/about"
                 className="block text-blue-100 hover:text-white transition-all duration-300 hover:translate-x-2 hover:scale-105"
               >
                 ℹ️ About Us
               </Link>
+              */}
               <Link
                 href="/contact"
                 className="block text-blue-100 hover:text-white transition-all duration-300 hover:translate-x-2 hover:scale-105"
@@ -129,12 +131,14 @@ export function Footer() {
               >
                 🔒 Privacy Policy
               </Link>
+              {/* TODO: Create /terms page
               <Link
                 href="/terms"
                 className="block text-blue-100 hover:text-white transition-all duration-300 hover:translate-x-2 hover:scale-105"
               >
                 📋 Terms of Service
               </Link>
+              */}
             </div>
           </div>
         </div>

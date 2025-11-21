@@ -190,8 +190,8 @@ export default function TherapistDashboardPage() {
 
   const loadData = async (userId: string) => {
     try {
-      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).single()
-      const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).single()
+      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle()
+      const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).maybeSingle()
       if (therapistData) {
         setProfile({
           user_id: userId,
@@ -205,7 +205,7 @@ export default function TherapistDashboardPage() {
       const { data: cr } = await supabase.from("contact_requests").select("*").eq("therapist_id", userId).order("created_at", { ascending: false })
       setRequests(cr || [])
       const currentMonth = new Date().toISOString().slice(0, 7) + "-01"
-      const { data: metricsData } = await supabase.from("therapist_metrics").select("*").eq("therapist_id", userId).eq("month_year", currentMonth).single()
+      const { data: metricsData } = await supabase.from("therapist_metrics").select("*").eq("therapist_id", userId).eq("month_year", currentMonth).maybeSingle()
       const twoMonthsAgo = new Date(); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
       const { count: bimonthlySessionCount } = await supabase.from("sessions").select("*", { count: "exact", head: true }).eq("therapist_id", userId).gte("created_at", twoMonthsAgo.toISOString())
       const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)

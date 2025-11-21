@@ -77,13 +77,13 @@ export default function TherapistProfilePage() {
         .from("therapists")
         .select("*")
         .eq("user_id", session.user.id)
-        .single()
+        .maybeSingle()
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name")
         .eq("user_id", session.user.id)
-        .single()
+        .maybeSingle()
 
       if (therapist) {
         setForm({
