@@ -339,7 +339,7 @@ export default function AdminTherapistsPage() {
       </div>
 
       <Dialog open={adjustPointsDialog} onOpenChange={setAdjustPointsDialog}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Adjust Ranking Points</DialogTitle>
             <DialogDescription>
@@ -415,7 +415,7 @@ export default function AdminTherapistsPage() {
 
       {/* Resend Invitation Dialog */}
       <Dialog open={resendDialog} onOpenChange={setResendDialog}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Resend Invitation</DialogTitle>
             <DialogDescription>
@@ -475,7 +475,7 @@ export default function AdminTherapistsPage() {
 
       {/* Delete Therapist Confirmation Dialog */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <DialogContent>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
