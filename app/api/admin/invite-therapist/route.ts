@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { randomBytes } from "crypto"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { requireAdmin } from "@/lib/auth-helpers"
 import { sendTherapistInviteEmail } from "@/lib/email-service"
@@ -17,71 +18,88 @@ export async function POST(req: Request) {
 
   const supabase = supabaseAdmin()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const email = parsed.data.email.toLowerCase().trim()
 
-  // Create auth user invite
-  const { data: userRes, error: createErr } = await supabase.auth.admin.createUser({
-    email: parsed.data.email,
-    email_confirm: false,
-    user_metadata: { role: "therapist" },
-    app_metadata: { provider: "email" },
-  })
-  if (createErr) {
-    // If already exists, try resending invite
-    const redirectTo = `${siteUrl}/auth/callback?next=/onboarding/therapist`
-    try {
-      // Generate invite link without sending email
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: "invite",
-        email: parsed.data.email,
-        options: {
-          redirectTo,
-        },
+  // Check if there's already a pending invitation
+  const { data: existingInvite } = await supabase
+    .from("therapist_invitations")
+    .select("*")
+    .eq("email", email)
+    .eq("status", "pending")
+    .single()
+
+  let inviteToken: string
+
+  if (existingInvite) {
+    // Resend existing invitation
+    inviteToken = existingInvite.token_hash
+
+    // Update last_sent_at and send_count
+    await supabase
+      .from("therapist_invitations")
+      .update({
+        last_sent_at: new Date().toISOString(),
+        send_count: existingInvite.send_count + 1
       })
-      if (linkError) {
-        return NextResponse.json({ error: linkError.message }, { status: 400 })
-      }
-      
-      // Send email via Resend
-      const emailResult = await sendTherapistInviteEmail(parsed.data.email, linkData.properties.action_link)
-      if (!emailResult.success) {
-        return NextResponse.json({ error: emailResult.error || "Failed to send email" }, { status: 500 })
-      }
-      
-      return NextResponse.json({ ok: true, resent: true })
-    } catch (e: any) {
-      return NextResponse.json({ error: createErr.message }, { status: 400 })
+      .eq("id", existingInvite.id)
+  } else {
+    // Generate new cryptographically secure invite token (64 characters)
+    inviteToken = randomBytes(32).toString("hex")
+
+    // Get admin user ID for audit trail
+    const { data: { user: adminUser } } = await supabase.auth.getUser()
+
+    // Create new invitation record
+    const { error: inviteErr } = await supabase
+      .from("therapist_invitations")
+      .insert({
+        email,
+        token_hash: inviteToken,
+        status: "pending",
+        invited_by_admin_id: adminUser?.id,
+        invited_at: new Date().toISOString(),
+        last_sent_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        send_count: 1
+      })
+
+    if (inviteErr) {
+      console.error("[Invite] Failed to create invitation:", inviteErr.message)
+      return NextResponse.json({ error: inviteErr.message }, { status: 400 })
     }
-  }
-  const newUser = userRes?.user
-  if (!newUser) return NextResponse.json({ error: "Failed to create user" }, { status: 400 })
 
-  // Upsert profiles and therapists rows
-  const { error: profErr } = await supabase.from("profiles").upsert({ user_id: newUser.id, email: parsed.data.email, role: "therapist" }, { onConflict: "user_id" })
-  if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 })
-
-  const { error: thErr } = await supabase.from("therapists").upsert({ user_id: newUser.id }, { onConflict: "user_id" })
-  if (thErr) return NextResponse.json({ error: thErr.message }, { status: 400 })
-
-  // Generate invite link and send via Resend
-  const redirectTo = `${siteUrl}/auth/callback?next=/onboarding/therapist`
-  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email: parsed.data.email,
-    options: {
-      redirectTo,
-    },
-  })
-  if (linkError) {
-    return NextResponse.json({ error: linkError.message }, { status: 400 })
+    // Log admin action
+    await supabase.from("admin_audit_logs").insert({
+      actor_admin_id: adminUser?.id,
+      action: "therapist_invited",
+      target_email: email,
+      details: { invite_token: inviteToken.slice(0, 8) + "..." } // Only log first 8 chars
+    })
   }
 
-  // Send invite email via Resend
-  const emailResult = await sendTherapistInviteEmail(parsed.data.email, linkData.properties.action_link)
+  // Generate magic link URL
+  const inviteUrl = `${siteUrl}/invite/accept?token=${inviteToken}`
+
+  // Send email via Resend
+  const emailResult = await sendTherapistInviteEmail(email, inviteUrl)
   if (!emailResult.success) {
+    // Mark invitation as failed
+    await supabase
+      .from("therapist_invitations")
+      .update({
+        status: "undeliverable",
+        failure_reason: emailResult.error
+      })
+      .eq("token_hash", inviteToken)
+
     return NextResponse.json({ error: emailResult.error || "Failed to send email" }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, user_id: newUser.id })
+  return NextResponse.json({
+    ok: true,
+    resent: !!existingInvite,
+    email_id: emailResult.emailId
+  })
 }
 
 

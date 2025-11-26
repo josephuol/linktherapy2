@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
-import { schedulePaymentNotifications } from "@/lib/qstash-service"
+import { scheduleAllPaymentNotifications } from "@/lib/qstash"
 
 function getPeriodBounds(dateIso: string) {
   const date = new Date(dateIso)
@@ -107,18 +107,21 @@ export async function POST(req: Request) {
         .single()
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
 
-      // Schedule payment notifications via Qstash
+      // Schedule payment notifications for the new payment
       if (newPayment?.id) {
-        const scheduleResult = await schedulePaymentNotifications(
-          newPayment.id,
-          body.therapist_id,
-          dueDate
-        )
-        if (!scheduleResult.success) {
-          console.error("[Payment Recalc] Failed to schedule notifications:", scheduleResult.error)
-          // Don't fail the request - payment was created successfully
-        } else {
-          console.log(`[Payment Recalc] Scheduled notifications for payment ${newPayment.id}`)
+        try {
+          const scheduleResult = await scheduleAllPaymentNotifications(
+            newPayment.id,
+            body.therapist_id,
+            dueDate
+          )
+          if (!scheduleResult.success && scheduleResult.errors) {
+            console.error("[Payment Recalc] Failed to schedule some notifications:", scheduleResult.errors)
+            // Don't fail the request if scheduling fails, just log it
+          }
+        } catch (scheduleError: any) {
+          console.error("[Payment Recalc] Exception scheduling notifications:", scheduleError?.message)
+          // Don't fail the request if scheduling fails, just log it
         }
       }
     }

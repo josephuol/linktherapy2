@@ -10,33 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-function sha1(input: string): string {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const buffer = (window.crypto || (window as any).msCrypto).subtle
-  throw new Error("sha1 must be awaited")
-}
-
-async function sha1Hex(input: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const digest = await crypto.subtle.digest("SHA-1", data)
-  const hashArray = Array.from(new Uint8Array(digest))
-  const hex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
-  return hex.toUpperCase()
-}
-
-async function isPwnedPassword(password: string): Promise<boolean> {
-  const sha1 = await sha1Hex(password)
-  const prefix = sha1.slice(0, 5)
-  const suffix = sha1.slice(5)
-  const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`)
-  if (!res.ok) return false
-  const text = await res.text()
-  const lines = text.split("\n")
-  return lines.some((line) => line.startsWith(suffix))
-}
-
 export default function TherapistOnboardingClient() {
   const supabase = supabaseBrowser()
   const params = useSearchParams()
@@ -44,13 +17,8 @@ export default function TherapistOnboardingClient() {
   const PROFILE_BUCKET = process.env.NEXT_PUBLIC_PROFILE_BUCKET || "profile-images"
 
   const [hydrating, setHydrating] = useState(true)
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2>(1) // Changed from 1|2|3 to 1|2 (removed password step)
   const [error, setError] = useState<string | null>(null)
-
-  const [password, setPassword] = useState("")
-  const [password2, setPassword2] = useState("")
-  const passwordsMatch = useMemo(() => password.length > 0 && password === password2, [password, password2])
-  const [savingPwd, setSavingPwd] = useState(false)
 
   const [fullName, setFullName] = useState("")
   const [title, setTitle] = useState("")
@@ -127,34 +95,6 @@ export default function TherapistOnboardingClient() {
     })()
   }, [supabase])
 
-  const onSetPassword = useCallback(async () => {
-    setError(null)
-    if (!passwordsMatch) {
-      setError("Passwords do not match")
-      return
-    }
-    if (password.length < 12) {
-      setError("Password must be at least 12 characters")
-      return
-    }
-    setSavingPwd(true)
-    try {
-      const pwned = await isPwnedPassword(password)
-      if (pwned) {
-        setError("This password appears in breach datasets. Please choose a stronger password.")
-        return
-      }
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) {
-        setError(error.message)
-        return
-      }
-      setStep(2)
-    } finally {
-      setSavingPwd(false)
-    }
-  }, [password, passwordsMatch, supabase])
-
   const onSaveProfile = useCallback(async () => {
     setError(null)
     if (!fullName || !title || !bioShort || !bioLong || !religion || !ageRange || yearsOfExperience === "" || price45 === "" || !gender || selectedLocations.length === 0) {
@@ -219,7 +159,7 @@ export default function TherapistOnboardingClient() {
         setError(data?.error || "Failed to save profile")
         return
       }
-      setStep(3)
+      setStep(2)
       setTimeout(() => router.replace("/dashboard"), 800)
     } finally {
       setSavingProfile(false)
@@ -232,33 +172,11 @@ export default function TherapistOnboardingClient() {
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Therapist Onboarding</h1>
-        <div className="text-sm text-gray-600">Step {step} of 3</div>
+        <div className="text-sm text-gray-600">Step {step} of 2</div>
       </div>
       {error && <div className="text-sm text-red-600">{error}</div>}
 
       {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Set your password</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">Set a secure password to protect your account.</p>
-            <div>
-              <Label htmlFor="password">New password</Label>
-              <Input id="password" type="password" placeholder="Min 12 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="password2">Confirm password</Label>
-              <Input id="password2" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
-            </div>
-            <Button onClick={onSetPassword} disabled={savingPwd}>
-              {savingPwd ? "Saving..." : "Continue"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 2 && (
         <Card>
           <CardHeader>
             <CardTitle>Professional profile</CardTitle>
@@ -461,7 +379,7 @@ export default function TherapistOnboardingClient() {
         </Card>
       )}
 
-      {step === 3 && (
+      {step === 2 && (
         <Card>
           <CardContent className="text-green-700 p-6">All set! Redirecting to your dashboard...</CardContent>
         </Card>

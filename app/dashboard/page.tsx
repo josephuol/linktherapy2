@@ -190,22 +190,21 @@ export default function TherapistDashboardPage() {
 
   const loadData = async (userId: string) => {
     try {
-      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle()
-      const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).maybeSingle()
-      if (therapistData) {
-        setProfile({
-          user_id: userId,
-          full_name: therapistData.full_name || prof?.full_name || "",
-          role: prof?.role || "therapist",
-          ranking_points: therapistData.ranking_points || 50,
-          total_sessions: therapistData.total_sessions || 0,
-          churn_rate_monthly: therapistData.churn_rate_monthly || 0
-        })
-      }
+      const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).single()
+      const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).single()
+      // Always set profile, even if therapistData doesn't exist yet
+      setProfile({
+        user_id: userId,
+        full_name: therapistData?.full_name || prof?.full_name || "",
+        role: prof?.role || "therapist",
+        ranking_points: therapistData?.ranking_points || 50,
+        total_sessions: therapistData?.total_sessions || 0,
+        churn_rate_monthly: therapistData?.churn_rate_monthly || 0
+      })
       const { data: cr } = await supabase.from("contact_requests").select("*").eq("therapist_id", userId).order("created_at", { ascending: false })
       setRequests(cr || [])
       const currentMonth = new Date().toISOString().slice(0, 7) + "-01"
-      const { data: metricsData } = await supabase.from("therapist_metrics").select("*").eq("therapist_id", userId).eq("month_year", currentMonth).maybeSingle()
+      const { data: metricsData } = await supabase.from("therapist_metrics").select("*").eq("therapist_id", userId).eq("month_year", currentMonth).single()
       const twoMonthsAgo = new Date(); twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
       const { count: bimonthlySessionCount } = await supabase.from("sessions").select("*", { count: "exact", head: true }).eq("therapist_id", userId).gte("created_at", twoMonthsAgo.toISOString())
       const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -288,11 +287,23 @@ export default function TherapistDashboardPage() {
     try {
       const request = requests.find(r => r.id === requestId)
       if (!request) { throw new Error("Request not found") }
-      if (!profile?.user_id) { throw new Error("User profile not loaded") }
+      
+      // Get user_id from profile or session as fallback
+      let therapistId = profile?.user_id
+      if (!therapistId) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user?.id) {
+          throw new Error("User not authenticated")
+        }
+        therapistId = session.user.id
+        // Reload profile data
+        await loadData(therapistId)
+      }
+      
       const { error: updateError } = await supabase.from("contact_requests").update({ status: "scheduled" }).eq("id", requestId)
       if (updateError) { throw new Error(`Failed to update request: ${updateError.message}`) }
       const { error: sessionError } = await supabase.from("sessions").insert({
-        therapist_id: profile.user_id,
+        therapist_id: therapistId,
         client_email: request.client_email,
         client_name: request.client_name,
         session_date: sessionIsoDateTime,
@@ -302,7 +313,7 @@ export default function TherapistDashboardPage() {
       })
       if (sessionError) { throw new Error(`Failed to create session: ${sessionError.message}`) }
       await recalcPayment(sessionIsoDateTime)
-      await loadData(profile.user_id)
+      await loadData(therapistId)
       toast({ title: "Session Scheduled", description: "Session has been created for this client. Your metrics will update shortly.", variant: "default" })
     } catch (error: any) {
       console.error("Error scheduling session:", error)
@@ -314,8 +325,21 @@ export default function TherapistDashboardPage() {
     try {
       const request = requests.find(r => r.id === requestId)
       if (!request) { throw new Error("Request not found") }
+      
+      // Get user_id from profile or session as fallback
+      let therapistId = profile?.user_id
+      if (!therapistId) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user?.id) {
+          throw new Error("User not authenticated")
+        }
+        therapistId = session.user.id
+        // Reload profile data
+        await loadData(therapistId)
+      }
+      
       const { error: sessionError } = await supabase.from("sessions").insert({
-        therapist_id: profile?.user_id,
+        therapist_id: therapistId,
         client_email: request.client_email,
         client_name: request.client_name,
         session_date: sessionIsoDateTime,
@@ -325,7 +349,7 @@ export default function TherapistDashboardPage() {
       })
       if (sessionError) { throw new Error(`Failed to create new session: ${sessionError.message}`) }
       await recalcPayment(sessionIsoDateTime)
-      if (profile?.user_id) { await loadData(profile.user_id) }
+      await loadData(therapistId)
       toast({ title: "Session Rescheduled", description: "A new session has been scheduled for this client.", variant: "default" })
     } catch (error: any) {
       console.error("Error rescheduling session:", error)
@@ -362,7 +386,21 @@ export default function TherapistDashboardPage() {
   }
 
   const handleConfirmRescheduleExisting = async () => {
-    if (!selectedSession || !profile?.user_id) return
+    if (!selectedSession) return
+    
+    // Get user_id from profile or session as fallback
+    let therapistId = profile?.user_id
+    if (!therapistId) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) {
+        toast({ title: "Error", description: "User not authenticated", variant: "destructive" })
+        return
+      }
+      therapistId = session.user.id
+      // Reload profile data
+      await loadData(therapistId)
+    }
+    
     try {
       const originalDate = new Date(selectedSession.session_date)
       if (selectedSession.status !== 'scheduled' || originalDate.getTime() <= Date.now()) { throw new Error("Only upcoming scheduled sessions can be rescheduled") }
@@ -372,7 +410,7 @@ export default function TherapistDashboardPage() {
       const { error: updateErr } = await supabase.from("sessions").update({ status: 'rescheduled' }).eq("id", selectedSession.id)
       if (updateErr) throw new Error(updateErr.message)
       const { error: insertErr } = await supabase.from("sessions").insert({
-        therapist_id: profile.user_id,
+        therapist_id: therapistId,
         client_email: original.client_email,
         client_name: original.client_name,
         session_date: newIso,
@@ -381,11 +419,11 @@ export default function TherapistDashboardPage() {
         status: 'scheduled',
         rescheduled_from: selectedSession.id,
         reschedule_reason: rescheduleReason || null,
-        rescheduled_by: profile.user_id,
+        rescheduled_by: therapistId,
       })
       if (insertErr) throw new Error(insertErr.message)
       await recalcPayment(newIso)
-      await loadData(profile.user_id)
+      await loadData(therapistId)
       setRescheduleDialogOpen(false)
       setSelectedSession(null)
       setNewSessionDate("")
