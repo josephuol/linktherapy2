@@ -3,8 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-server"
 import { verifyQstashSignature, PaymentNotificationStage } from "@/lib/qstash-service"
 import {
   sendPaymentReminderEmail,
-  sendPaymentDeadlineEmail,
-  sendPaymentWarningEmail,
+  sendPaymentGracePeriodEmail,
+  sendPaymentSuspensionWarningEmail,
 } from "@/lib/email-service"
 
 /**
@@ -99,18 +99,18 @@ export async function POST(req: Request) {
         emailResult = await sendPaymentReminderEmail(
           therapist.email,
           therapist.full_name,
-          new Date(payment.payment_due_date),
           commissionAmount,
-          paymentPeriod
+          new Date(payment.payment_due_date),
+          `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
         )
         break
 
       case "deadline_notification":
-        emailResult = await sendPaymentDeadlineEmail(
+        emailResult = await sendPaymentGracePeriodEmail(
           therapist.email,
           therapist.full_name,
           commissionAmount,
-          paymentPeriod
+          `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
         )
         break
 
@@ -132,11 +132,11 @@ export async function POST(req: Request) {
           console.log(`[Qstash Webhook] Payment ${paymentId} marked as overdue`)
         }
 
-        emailResult = await sendPaymentWarningEmail(
+        emailResult = await sendPaymentSuspensionWarningEmail(
           therapist.email,
           therapist.full_name,
           commissionAmount,
-          paymentPeriod
+          `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
         )
         break
 

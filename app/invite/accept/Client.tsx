@@ -126,12 +126,17 @@ export default function AcceptInviteClient() {
         return
       }
 
-      // Auto-login with returned session tokens
-      if (data.access_token && data.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token
-        })
+      // Login with the password they just set
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: inviteEmail,
+        password: password
+      })
+
+      if (signInError) {
+        console.error("[Invite] Auto-login failed:", signInError.message)
+        // Redirect to login page if auto-login fails
+        router.replace("/login?message=Account created! Please log in.")
+        return
       }
 
       // Redirect to onboarding

@@ -131,28 +131,12 @@ export async function POST(req: Request) {
     })
     .eq("id", invitation.id)
 
-  // 6. Generate session tokens for auto-login
-  const { data: session, error: sessionError } = await supabase.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  })
-
-  if (sessionError || !session) {
-    console.error("[Invite Accept] Failed to generate session:", sessionError?.message)
-    // User was created successfully, but can't auto-login
-    return NextResponse.json({
-      success: true,
-      message: "Account created! Please log in with your password.",
-      redirect: "/login"
-    })
-  }
-
-  // 7. Return success with session tokens
+  // 6. User was created successfully - they can now log in with their password
+  // We don't auto-login anymore since they just set their password
   return NextResponse.json({
     success: true,
     user_id: userId,
-    access_token: session.properties.access_token,
-    refresh_token: session.properties.refresh_token,
+    message: "Account created successfully!",
     redirect: "/onboarding/therapist"
   })
 }

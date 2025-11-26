@@ -37,13 +37,13 @@ export async function schedulePaymentReminder(
   try {
     const url = `${SITE_URL}/api/payment-notifications/reminder`
     
-    const messageId = await qstashClient.publishJSON({
+    const response = await qstashClient.publishJSON({
       url,
       body: { payment_id: paymentId, therapist_id: therapistId },
       schedule: scheduledTime.toISOString(),
     })
 
-    return { success: true, messageId }
+    return { success: true, messageId: response.messageId }
   } catch (error: any) {
     console.error("[QStash] Failed to schedule payment reminder:", error?.message || "Unknown error")
     return { success: false, error: error?.message || "Failed to schedule reminder" }
@@ -61,13 +61,13 @@ export async function schedulePaymentGracePeriod(
   try {
     const url = `${SITE_URL}/api/payment-notifications/grace-period`
     
-    const messageId = await qstashClient.publishJSON({
+    const response = await qstashClient.publishJSON({
       url,
       body: { payment_id: paymentId, therapist_id: therapistId },
       schedule: scheduledTime.toISOString(),
     })
 
-    return { success: true, messageId }
+    return { success: true, messageId: response.messageId }
   } catch (error: any) {
     console.error("[QStash] Failed to schedule grace period notification:", error?.message || "Unknown error")
     return { success: false, error: error?.message || "Failed to schedule grace period notification" }
@@ -85,13 +85,13 @@ export async function schedulePaymentSuspensionWarning(
   try {
     const url = `${SITE_URL}/api/payment-notifications/suspension-warning`
     
-    const messageId = await qstashClient.publishJSON({
+    const response = await qstashClient.publishJSON({
       url,
       body: { payment_id: paymentId, therapist_id: therapistId },
       schedule: scheduledTime.toISOString(),
     })
 
-    return { success: true, messageId }
+    return { success: true, messageId: response.messageId }
   } catch (error: any) {
     console.error("[QStash] Failed to schedule suspension warning:", error?.message || "Unknown error")
     return { success: false, error: error?.message || "Failed to schedule suspension warning" }

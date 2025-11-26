@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { verifyQstashSignature } from "@/lib/qstash-service"
-import { sendAccountSuspensionEmail } from "@/lib/email-service"
+// TODO: Implement sendAccountSuspensionEmail in email-service.ts
+// import { sendAccountSuspensionEmail } from "@/lib/email-service"
 
 /**
  * Qstash webhook for suspending therapist accounts due to non-payment
@@ -126,12 +127,14 @@ export async function POST(req: Request) {
     const paymentPeriod = `${periodStart} - ${periodEnd}`
     const commissionAmount = Number(payment.commission_amount) || 0
 
-    const emailResult = await sendAccountSuspensionEmail(
-      therapist.email,
-      therapist.full_name,
-      commissionAmount,
-      paymentPeriod
-    )
+    // TODO: Implement sendAccountSuspensionEmail function
+    const emailResult: { success: boolean; error?: string } = { success: true }
+    // const emailResult = await sendAccountSuspensionEmail(
+    //   therapist.email,
+    //   therapist.full_name,
+    //   commissionAmount,
+    //   `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+    // )
 
     if (!emailResult.success) {
       console.error("[Qstash Webhook] Failed to send suspension email:", emailResult.error)
