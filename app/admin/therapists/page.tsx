@@ -52,11 +52,20 @@ export default function AdminTherapistsPage() {
   const [deleting, setDeleting] = useState(false)
 
   const loadTherapists = async () => {
-    // Fetch therapists
-    const { data: therapistsData } = await supabase
+    // Fetch therapists - explicitly set a large limit to get all records
+    const { data: therapistsData, error: therapistsError, count } = await supabase
       .from("therapists")
-      .select("user_id, full_name, title, status, ranking_points, total_sessions")
+      .select("user_id, full_name, title, status, ranking_points, total_sessions", { count: 'exact' })
       .order("ranking_points", { ascending: false })
+      .limit(1000) // Set explicit high limit
+
+    if (therapistsError) {
+      console.error("Error loading therapists:", therapistsError)
+      toast.error("Failed to load therapists")
+      return
+    }
+
+    console.log(`Loaded ${therapistsData?.length || 0} therapists out of ${count} total`)
 
     if (!therapistsData || therapistsData.length === 0) {
       setTherapists([])
@@ -65,10 +74,14 @@ export default function AdminTherapistsPage() {
 
     // Fetch profiles for all therapist user_ids
     const userIds = therapistsData.map(t => t.user_id)
-    const { data: profilesData } = await supabase
+    const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, email")
       .in("user_id", userIds)
+
+    if (profilesError) {
+      console.error("Error loading profiles:", profilesError)
+    }
 
     // Create a map of user_id to email for quick lookup
     const emailMap = new Map(profilesData?.map(p => [p.user_id, p.email]) || [])
