@@ -83,9 +83,13 @@ export async function POST(req: Request) {
       .single()
 
     if (profile?.email) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      // Get site URL - prioritize NEXT_PUBLIC_SITE_URL, fallback to VERCEL_URL
+      let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      if (!siteUrl && process.env.VERCEL_URL) {
+        siteUrl = `https://${process.env.VERCEL_URL}`
+      }
       if (!siteUrl) {
-        console.error("[Contact Request] NEXT_PUBLIC_SITE_URL not set, cannot send notification email")
+        console.error("[Contact Request] No site URL available, cannot send notification email")
         // Don't fail the request, just skip email notification
         return NextResponse.json({ request: data })
       }

@@ -17,10 +17,14 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid email" }, { status: 400 })
 
   const supabase = supabaseAdmin()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
 
+  // Get site URL - prioritize NEXT_PUBLIC_SITE_URL, fallback to VERCEL_URL
+  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl && process.env.VERCEL_URL) {
+    siteUrl = `https://${process.env.VERCEL_URL}`
+  }
   if (!siteUrl) {
-    console.error("[Invite] NEXT_PUBLIC_SITE_URL not set!")
+    console.error("[Invite] No site URL available (NEXT_PUBLIC_SITE_URL or VERCEL_URL)")
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
   }
 

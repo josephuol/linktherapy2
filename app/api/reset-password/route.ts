@@ -26,9 +26,14 @@ export async function POST(req: Request) {
   }
 
   const supabase = supabaseAdmin()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+
+  // Get site URL - prioritize NEXT_PUBLIC_SITE_URL, fallback to VERCEL_URL
+  let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl && process.env.VERCEL_URL) {
+    siteUrl = `https://${process.env.VERCEL_URL}`
+  }
   if (!siteUrl) {
-    console.error("[Reset Password] NEXT_PUBLIC_SITE_URL not set!")
+    console.error("[Reset Password] No site URL available (NEXT_PUBLIC_SITE_URL or VERCEL_URL)")
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
   }
 
