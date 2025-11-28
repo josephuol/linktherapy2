@@ -17,7 +17,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 })
 
   const supabase = supabaseAdmin()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl) {
+    console.error("[Bulk Invite] NEXT_PUBLIC_SITE_URL not set!")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
   const results: { email: string; status: "ok" | "error"; message?: string }[] = []
 
   for (const emailRaw of parsed.data.emails) {

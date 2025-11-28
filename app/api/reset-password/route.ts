@@ -26,7 +26,11 @@ export async function POST(req: Request) {
   }
 
   const supabase = supabaseAdmin()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl) {
+    console.error("[Reset Password] NEXT_PUBLIC_SITE_URL not set!")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
 
   // Generate password reset link using Supabase admin
   const redirectTo = `${siteUrl}/reset-password/confirm`

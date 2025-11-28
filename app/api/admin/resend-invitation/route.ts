@@ -25,7 +25,11 @@ export async function POST(req: Request) {
 
   const supabase = supabaseAdmin()
   const email = parsed.data.email.toLowerCase().trim()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl) {
+    console.error("[Resend Invitation] NEXT_PUBLIC_SITE_URL not set!")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
 
   try {
     // Check if there's a pending invitation

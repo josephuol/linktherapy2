@@ -3,9 +3,14 @@ import { qstashReceiver } from "@/lib/qstash"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { sendPaymentSuspensionWarningEmail } from "@/lib/email-service"
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
 
 export async function POST(req: Request) {
+  if (!SITE_URL) {
+    console.error("[Payment Notification] NEXT_PUBLIC_SITE_URL not set!")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
   try {
     // Verify QStash signature
     const signature = req.headers.get("upstash-signature") || req.headers.get("Upstash-Signature")

@@ -83,12 +83,11 @@ export async function POST(req: Request) {
       .single()
 
     if (profile?.email) {
-      // Get site URL from env var, or derive from request headers as fallback
-      let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
       if (!siteUrl) {
-        const host = req.headers.get('host')
-        const protocol = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
-        siteUrl = host ? `${protocol}://${host}` : "http://localhost:3000"
+        console.error("[Contact Request] NEXT_PUBLIC_SITE_URL not set, cannot send notification email")
+        // Don't fail the request, just skip email notification
+        return NextResponse.json({ request: data })
       }
       const dashboardUrl = `${siteUrl}/dashboard`
       
