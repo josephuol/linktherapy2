@@ -86,7 +86,7 @@ export default function AdminDashboardPage() {
         router.replace("/admin/login")
         return
       }
-      const { data } = await supabase.from("therapists").select("user_id, full_name, title, status, ranking_points, churn_rate_monthly, total_sessions").order("ranking_points", { ascending: false })
+      const { data } = await supabase.from("therapists").select("user_id, full_name, title, status, ranking_points, churn_rate_monthly, total_sessions").order("ranking_points", { ascending: false }).limit(1000)
       setTherapists(data ?? [])
       // Revenue and activity metrics
       const now = new Date()
@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
                           className="text-[#056DBA] hover:underline"
                           onClick={() => router.push(`/admin/therapists/${t.user_id}`)}
                         >
-                          {t.full_name}
+                          {t.full_name || "(Pending Onboarding)"}
                         </button>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{t.title || '—'}</TableCell>
