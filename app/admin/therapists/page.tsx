@@ -52,29 +52,37 @@ export default function AdminTherapistsPage() {
   const [deleting, setDeleting] = useState(false)
 
   const loadTherapists = async () => {
-    const { data } = await supabase
+    // Fetch therapists
+    const { data: therapistsData } = await supabase
       .from("therapists")
-      .select(`
-        user_id,
-        full_name,
-        title,
-        status,
-        ranking_points,
-        total_sessions,
-        profiles!inner(email)
-      `)
+      .select("user_id, full_name, title, status, ranking_points, total_sessions")
       .order("ranking_points", { ascending: false })
 
-    // Transform the data to flatten the email from profiles
-    const therapistsWithEmail = data?.map(t => ({
+    if (!therapistsData || therapistsData.length === 0) {
+      setTherapists([])
+      return
+    }
+
+    // Fetch profiles for all therapist user_ids
+    const userIds = therapistsData.map(t => t.user_id)
+    const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("user_id, email")
+      .in("user_id", userIds)
+
+    // Create a map of user_id to email for quick lookup
+    const emailMap = new Map(profilesData?.map(p => [p.user_id, p.email]) || [])
+
+    // Merge therapists with their emails
+    const therapistsWithEmail = therapistsData.map(t => ({
       user_id: t.user_id,
       full_name: t.full_name,
       title: t.title,
       status: t.status,
       ranking_points: t.ranking_points,
       total_sessions: t.total_sessions,
-      email: (t.profiles as any)?.email
-    })) || []
+      email: emailMap.get(t.user_id) || undefined
+    }))
 
     setTherapists(therapistsWithEmail as Therapist[])
   }
