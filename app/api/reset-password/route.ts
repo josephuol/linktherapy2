@@ -2,10 +2,23 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { sendPasswordResetEmail } from "@/lib/email-service"
+import { getClientIP, checkRateLimit } from "@/lib/rate-limit"
 
 const schema = z.object({ email: z.string().email() })
 
 export async function POST(req: Request) {
+  // Rate limiting - 10 attempts per 15 minutes per IP
+  const ip = getClientIP(req)
+  const rateCheck = checkRateLimit(ip, "authAction")
+
+  if (!rateCheck.allowed) {
+    // Don't reveal rate limit to prevent email enumeration
+    // Always return success message
+    return NextResponse.json({
+      message: "If an account exists with this email, a password reset link has been sent."
+    })
+  }
+
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {

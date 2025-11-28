@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { supabaseAdmin } from "@/lib/supabase-server"
+import { getClientIP, checkRateLimit } from "@/lib/rate-limit"
 
 const schema = z.object({
   token: z.string().min(1),
@@ -17,6 +18,20 @@ const schema = z.object({
  * 5. Returns session tokens for auto-login
  */
 export async function POST(req: Request) {
+  // Rate limiting - 10 attempts per 15 minutes per IP
+  const ip = getClientIP(req)
+  const rateCheck = checkRateLimit(ip, "authAction")
+
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "Too many attempts. Please try again later.",
+        resetAt: rateCheck.resetAt?.toISOString()
+      },
+      { status: 429 }
+    )
+  }
+
   const body = await req.json().catch(() => null)
   const parsed = schema.safeParse(body)
 

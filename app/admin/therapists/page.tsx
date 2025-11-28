@@ -111,10 +111,10 @@ export default function AdminTherapistsPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        if (data.error === "User not found") {
+        if (data.error === "No pending invitation found") {
           toast.error("No pending invitation found for this email. Use 'Invite' to send a new invitation.")
-        } else if (data.error === "User already confirmed") {
-          toast.error("This user has already completed registration. They can use 'Forgot Password' to regain access.")
+        } else if (data.error === "Invitation expired") {
+          toast.error("The invitation has expired. Use 'Invite' to send a new invitation.")
         } else {
           throw new Error(data.error || "Failed to resend invitation")
         }

@@ -559,7 +559,7 @@ export default function TherapistDashboardPage() {
 }
 
 // Reschedule existing session dialog
-export function RescheduleDialogWrapper({
+function RescheduleDialogWrapper({
   open,
   onOpenChange,
   newSessionDate,

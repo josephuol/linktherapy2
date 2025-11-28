@@ -7,12 +7,10 @@ import { sendTherapistInviteEmail } from "@/lib/email-service"
 const schema = z.object({ email: z.string().email() })
 
 /**
- * Resend invitation email to a therapist
+ * Resend invitation email to a therapist using the magic link system
  *
- * Handles the following scenarios:
- * 1. User exists but hasn't confirmed email - generates new invite link
- * 2. User exists and already confirmed - returns error (should use password reset)
- * 3. User doesn't exist - returns error (should use invite-therapist endpoint)
+ * This endpoint looks up the existing pending invitation and resends the magic link.
+ * If no pending invitation exists, it returns an error.
  */
 export async function POST(req: Request) {
   // Verify admin authentication
@@ -28,83 +26,93 @@ export async function POST(req: Request) {
   const supabase = supabaseAdmin()
   const email = parsed.data.email.toLowerCase().trim()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  const redirectTo = `${siteUrl}/auth/callback?next=/onboarding/therapist`
 
   try {
-    // Check if user exists and their confirmation status
-    const { data: userData, error: listError } = await supabase.auth.admin.listUsers()
+    // Check if there's a pending invitation
+    const { data: existingInvite, error: inviteError } = await supabase
+      .from("therapist_invitations")
+      .select("*")
+      .eq("email", email)
+      .eq("status", "pending")
+      .single()
 
-    if (listError) {
-      console.error("[Resend Invitation] Error listing users:", listError)
-      return NextResponse.json({ error: "Failed to check user status" }, { status: 500 })
-    }
-
-    const existingUser = userData.users.find(
-      (u) => u.email?.toLowerCase() === email
-    )
-
-    if (!existingUser) {
+    if (inviteError || !existingInvite) {
       return NextResponse.json(
         {
-          error: "User not found",
-          message: "No invitation exists for this email. Use the invite-therapist endpoint to send a new invitation."
+          error: "No pending invitation found",
+          message: "No pending invitation exists for this email. Use the invite-therapist endpoint to send a new invitation."
         },
         { status: 404 }
       )
     }
 
-    // Check if user has already confirmed their email
-    if (existingUser.email_confirmed_at) {
+    // Check if invitation has expired
+    if (existingInvite.expires_at && new Date(existingInvite.expires_at) < new Date()) {
+      await supabase
+        .from("therapist_invitations")
+        .update({ status: "expired" })
+        .eq("id", existingInvite.id)
+
       return NextResponse.json(
         {
-          error: "User already confirmed",
-          message: "This user has already confirmed their email. Use password reset if they need to regain access.",
-          confirmed_at: existingUser.email_confirmed_at
+          error: "Invitation expired",
+          message: "This invitation has expired. Use the invite-therapist endpoint to send a new invitation."
         },
         { status: 400 }
       )
     }
 
-    // User exists but hasn't confirmed - generate new invite link
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "invite",
-      email: email,
-      options: {
-        redirectTo,
-      },
-    })
+    const inviteToken = existingInvite.token_hash
 
-    if (linkError) {
-      console.error("[Resend Invitation] Error generating link:", linkError)
-      return NextResponse.json(
-        { error: linkError.message || "Failed to generate invitation link" },
-        { status: 400 }
-      )
-    }
+    // Update last_sent_at and send_count
+    await supabase
+      .from("therapist_invitations")
+      .update({
+        last_sent_at: new Date().toISOString(),
+        send_count: existingInvite.send_count + 1
+      })
+      .eq("id", existingInvite.id)
 
-    if (!linkData?.properties?.action_link) {
-      return NextResponse.json(
-        { error: "Failed to generate invitation link - no action link returned" },
-        { status: 500 }
-      )
-    }
+    // Generate magic link URL
+    const inviteUrl = `${siteUrl}/invite/accept?token=${inviteToken}`
 
     // Send email via Resend
-    const emailResult = await sendTherapistInviteEmail(email, linkData.properties.action_link)
+    const emailResult = await sendTherapistInviteEmail(email, inviteUrl)
 
     if (!emailResult.success) {
       console.error("[Resend Invitation] Email send failed:", emailResult.error)
+
+      // Mark invitation as failed
+      await supabase
+        .from("therapist_invitations")
+        .update({
+          status: "undeliverable",
+          failure_reason: emailResult.error
+        })
+        .eq("id", existingInvite.id)
+
       return NextResponse.json(
         { error: emailResult.error || "Failed to send invitation email" },
         { status: 500 }
       )
     }
 
+    // Log admin action
+    await supabase.from("admin_audit_logs").insert({
+      actor_admin_id: authCheck.user?.id || null,
+      action: "therapist_invitation_resent",
+      target_email: email,
+      details: {
+        invite_token: inviteToken.slice(0, 8) + "...",
+        send_count: existingInvite.send_count + 1
+      }
+    })
+
     return NextResponse.json({
       ok: true,
       message: "Invitation email resent successfully",
-      user_id: existingUser.id,
-      email_id: emailResult.emailId
+      email_id: emailResult.emailId,
+      send_count: existingInvite.send_count + 1
     })
 
   } catch (error: any) {
