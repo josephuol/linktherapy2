@@ -72,13 +72,14 @@ export async function POST(req: Request) {
       inviteToken = randomBytes(32).toString("hex")
 
       // Create new invitation record
+      // Note: invited_by_admin_id set to null to avoid FK constraint until DB is fixed
       const { error: inviteErr } = await supabase
         .from("therapist_invitations")
         .insert({
           email,
           token_hash: inviteToken,
           status: "pending",
-          invited_by_admin_id: authCheck.user?.id || null,
+          invited_by_admin_id: null,
           invited_at: new Date().toISOString(),
           last_sent_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
