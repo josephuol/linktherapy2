@@ -22,9 +22,13 @@ export async function POST(req: Request) {
 
   try {
     // Delete related records first (order matters due to foreign keys)
+    // Note: therapist_payment_actions has ON DELETE CASCADE, so it will be auto-deleted
 
     // Delete therapist_locations
     await supabase.from("therapist_locations").delete().eq("therapist_id", user_id)
+
+    // Delete therapist_specialties
+    await supabase.from("therapist_specialties").delete().eq("therapist_id", user_id)
 
     // Delete therapist_notifications
     await supabase.from("therapist_notifications").delete().eq("therapist_id", user_id)
@@ -32,27 +36,34 @@ export async function POST(req: Request) {
     // Delete therapist_ranking_history
     await supabase.from("therapist_ranking_history").delete().eq("therapist_id", user_id)
 
+    // Delete ranking_point_adjustments
+    await supabase.from("ranking_point_adjustments").delete().eq("therapist_id", user_id)
+
     // Delete therapist_metrics
     await supabase.from("therapist_metrics").delete().eq("therapist_id", user_id)
 
-    // Delete therapist_payments
-    await supabase.from("therapist_payments").delete().eq("therapist_id", user_id)
+    // Delete therapist_bimonthly_checks
+    await supabase.from("therapist_bimonthly_checks").delete().eq("therapist_id", user_id)
 
-    // Delete therapist_payment_actions (need to get payment IDs first)
-    const { data: payments } = await supabase
-      .from("therapist_payments")
-      .select("id")
-      .eq("therapist_id", user_id)
-    if (payments && payments.length > 0) {
-      const paymentIds = payments.map(p => p.id)
-      await supabase.from("therapist_payment_actions").delete().in("payment_id", paymentIds)
-    }
+    // Delete reviews
+    await supabase.from("reviews").delete().eq("therapist_id", user_id)
+
+    // Delete therapist_payments (this will cascade delete therapist_payment_actions)
+    await supabase.from("therapist_payments").delete().eq("therapist_id", user_id)
 
     // Delete sessions
     await supabase.from("sessions").delete().eq("therapist_id", user_id)
 
-    // Delete contact_requests
+    // Delete contact_requests (both as therapist and assigned therapist)
     await supabase.from("contact_requests").delete().eq("therapist_id", user_id)
+    await supabase.from("contact_requests").delete().eq("assigned_therapist_id", user_id)
+
+    // Update therapist_invitations status to 'revoked' instead of deleting
+    // This preserves audit trail of who was invited
+    await supabase
+      .from("therapist_invitations")
+      .update({ status: "revoked" })
+      .eq("accepted_user_id", user_id)
 
     // Delete therapists record
     await supabase.from("therapists").delete().eq("user_id", user_id)

@@ -54,9 +54,29 @@ export default function AdminTherapistsPage() {
   const loadTherapists = async () => {
     const { data } = await supabase
       .from("therapists")
-      .select("user_id, full_name, title, status, ranking_points, total_sessions")
+      .select(`
+        user_id,
+        full_name,
+        title,
+        status,
+        ranking_points,
+        total_sessions,
+        profiles!inner(email)
+      `)
       .order("ranking_points", { ascending: false })
-    setTherapists((data as Therapist[]) || [])
+
+    // Transform the data to flatten the email from profiles
+    const therapistsWithEmail = data?.map(t => ({
+      user_id: t.user_id,
+      full_name: t.full_name,
+      title: t.title,
+      status: t.status,
+      ranking_points: t.ranking_points,
+      total_sessions: t.total_sessions,
+      email: (t.profiles as any)?.email
+    })) || []
+
+    setTherapists(therapistsWithEmail as Therapist[])
   }
 
   useEffect(() => {
