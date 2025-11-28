@@ -3,15 +3,10 @@ import { qstashReceiver } from "@/lib/qstash"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { sendPaymentReminderEmail } from "@/lib/email-service"
 
-// Get site URL - prioritize NEXT_PUBLIC_SITE_URL, fallback to VERCEL_URL
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+// Get site URL - use production domain as fallback
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://linktherapy.org"
 
 export async function POST(req: Request) {
-  if (!SITE_URL) {
-    console.error("[Payment Notification] No site URL available (NEXT_PUBLIC_SITE_URL or VERCEL_URL)")
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
-  }
 
   try {
     // Verify QStash signature

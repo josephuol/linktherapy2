@@ -83,16 +83,8 @@ export async function POST(req: Request) {
       .single()
 
     if (profile?.email) {
-      // Get site URL - prioritize NEXT_PUBLIC_SITE_URL, fallback to VERCEL_URL
-      let siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-      if (!siteUrl && process.env.VERCEL_URL) {
-        siteUrl = `https://${process.env.VERCEL_URL}`
-      }
-      if (!siteUrl) {
-        console.error("[Contact Request] No site URL available, cannot send notification email")
-        // Don't fail the request, just skip email notification
-        return NextResponse.json({ request: data })
-      }
+      // Get site URL - use production domain as fallback
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://linktherapy.org"
       const dashboardUrl = `${siteUrl}/dashboard`
       
       await sendContactRequestNotificationEmail(
