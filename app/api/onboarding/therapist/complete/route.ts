@@ -18,6 +18,10 @@ const schema = z.object({
   gender: z.enum(["male","female","other"]),
   lgbtq_friendly: z.boolean().optional(),
   locations: z.array(z.string().min(1)).min(1).max(2),
+  // Terms acceptance - REQUIRED
+  accept_tos: z.boolean().refine(val => val === true, {
+    message: "You must accept the Terms of Service and Privacy Policy"
+  }),
 })
 
 export async function POST(req: Request) {
@@ -35,11 +39,21 @@ export async function POST(req: Request) {
   const { data: userData, error: userErr } = await supabase.auth.getUser(token)
   if (userErr || !userData?.user?.id) return NextResponse.json({ error: "Invalid token" }, { status: 401 })
   const userId = userData.user.id
+  const userEmail = userData.user.email
 
   const { full_name, title, bio_short, bio_long, religion, age_range, years_of_experience, languages, interests, session_price_45_min, profile_image_url, gender, lgbtq_friendly, locations } = parsed.data
 
-  const { error: profErr } = await supabase.from("profiles").upsert({ user_id: userId, full_name, terms_accepted_at: new Date().toISOString() }, { onConflict: "user_id" })
-  if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 })
+  // Update profile with email and terms acceptance
+  const { error: profErr } = await supabase.from("profiles").upsert({
+    user_id: userId,
+    email: userEmail,
+    full_name,
+    terms_accepted_at: new Date().toISOString()
+  }, { onConflict: "user_id" })
+  if (profErr) {
+    console.error("[Onboarding Complete] Failed to upsert profile:", profErr.message)
+    return NextResponse.json({ error: profErr.message }, { status: 400 })
+  }
 
   const { error: thErr } = await supabase
     .from("therapists")

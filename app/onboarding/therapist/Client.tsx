@@ -152,6 +152,7 @@ export default function TherapistOnboardingClient() {
           gender,
           lgbtq_friendly: !!lgbtqFriendly,
           locations: selectedLocations,
+          accept_tos: acceptTos, // Send terms acceptance to server
         }),
       })
       if (!res.ok) {
