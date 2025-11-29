@@ -21,17 +21,7 @@ export async function POST(req: Request) {
   const supabase = supabaseAdmin()
 
   try {
-    // First, try to delete the auth user - this is the most critical step
-    // If this fails, we shouldn't delete anything else
-    const { error: authError } = await supabase.auth.admin.deleteUser(user_id)
-    if (authError) {
-      console.error("Error deleting auth user:", authError)
-      return NextResponse.json({
-        error: `Failed to delete auth user: ${authError.message}. The account may not exist or there may be a permissions issue.`
-      }, { status: 500 })
-    }
-
-    // Delete related records (order matters due to foreign keys)
+    // Delete related records first (order matters due to foreign keys)
     // Note: therapist_payment_actions has ON DELETE CASCADE, so it will be auto-deleted
 
     // Delete therapist_locations
@@ -69,7 +59,6 @@ export async function POST(req: Request) {
     await supabase.from("contact_requests").delete().eq("assigned_therapist_id", user_id)
 
     // Delete therapist_invitations that were accepted by this user
-    // Changed from update to delete to allow re-invitation
     await supabase
       .from("therapist_invitations")
       .delete()
@@ -78,8 +67,20 @@ export async function POST(req: Request) {
     // Delete therapists record
     await supabase.from("therapists").delete().eq("user_id", user_id)
 
-    // Delete profiles record
-    await supabase.from("profiles").delete().eq("user_id", user_id)
+    // Delete profiles record (must be deleted before auth user due to FK constraint)
+    const { error: profileError } = await supabase.from("profiles").delete().eq("user_id", user_id)
+    if (profileError) {
+      console.error("Error deleting profile:", profileError)
+      throw new Error(`Failed to delete profile: ${profileError.message}`)
+    }
+
+    // Finally, delete the auth user
+    // This must be last because profiles table has FK to auth.users
+    const { error: authError } = await supabase.auth.admin.deleteUser(user_id)
+    if (authError) {
+      console.error("Error deleting auth user:", authError)
+      throw new Error(`Failed to delete auth user: ${authError.message}`)
+    }
 
     return NextResponse.json({
       ok: true,
