@@ -43,7 +43,8 @@ export async function POST(req: Request) {
 
   const { error: thErr } = await supabase
     .from("therapists")
-    .update({
+    .upsert({
+      user_id: userId,
       full_name,
       title,
       bio_short,
@@ -58,9 +59,15 @@ export async function POST(req: Request) {
       gender,
       lgbtq_friendly: typeof lgbtq_friendly === "boolean" ? lgbtq_friendly : undefined,
       status: 'active',
+      ranking_points: 50, // Set default ranking points
+      total_sessions: 0, // Initialize sessions count
+    }, {
+      onConflict: 'user_id'
     })
-    .eq("user_id", userId)
-  if (thErr) return NextResponse.json({ error: thErr.message }, { status: 400 })
+  if (thErr) {
+    console.error("[Onboarding Complete] Failed to upsert therapist:", thErr.message)
+    return NextResponse.json({ error: thErr.message }, { status: 400 })
+  }
 
   // Link therapist to locations (create locations if missing)
   // 1) Clear existing links
