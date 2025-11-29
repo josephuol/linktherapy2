@@ -22,6 +22,7 @@ type Therapist = {
   status?: string | null;
   ranking_points?: number | null;
   total_sessions?: number | null;
+  last_active?: string | null;
 }
 
 type PendingInvite = {
@@ -35,6 +36,7 @@ export default function AdminTherapistsPage() {
   const supabase = supabaseBrowser()
   const router = useRouter()
   const [therapists, setTherapists] = useState<Therapist[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [inviting, setInviting] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -66,6 +68,7 @@ export default function AdminTherapistsPage() {
     }
 
     console.log(`Loaded ${therapistsData?.length || 0} therapists out of ${count} total`)
+    setTotalCount(count || 0)
 
     if (!therapistsData || therapistsData.length === 0) {
       setTherapists([])
@@ -83,10 +86,27 @@ export default function AdminTherapistsPage() {
       console.error("Error loading profiles:", profilesError)
     }
 
+    // Fetch last active time for each therapist (most recent session)
+    const { data: sessionsData } = await supabase
+      .from("sessions")
+      .select("therapist_id, session_date")
+      .in("therapist_id", userIds)
+      .order("session_date", { ascending: false })
+
+    // Create map of therapist_id to most recent session date
+    const lastActiveMap = new Map<string, string>()
+    if (sessionsData) {
+      for (const session of sessionsData) {
+        if (!lastActiveMap.has(session.therapist_id)) {
+          lastActiveMap.set(session.therapist_id, session.session_date)
+        }
+      }
+    }
+
     // Create a map of user_id to email for quick lookup
     const emailMap = new Map(profilesData?.map(p => [p.user_id, p.email]) || [])
 
-    // Merge therapists with their emails
+    // Merge therapists with their emails and last active
     const therapistsWithEmail = therapistsData.map(t => ({
       user_id: t.user_id,
       full_name: t.full_name,
@@ -94,7 +114,8 @@ export default function AdminTherapistsPage() {
       status: t.status,
       ranking_points: t.ranking_points,
       total_sessions: t.total_sessions,
-      email: emailMap.get(t.user_id) || undefined
+      email: emailMap.get(t.user_id) || undefined,
+      last_active: lastActiveMap.get(t.user_id) || null
     }))
 
     setTherapists(therapistsWithEmail as Therapist[])
@@ -289,6 +310,7 @@ export default function AdminTherapistsPage() {
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Rank</TableHead>
                     <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="hidden lg:table-cell whitespace-nowrap">Email</TableHead>
                     <TableHead className="hidden md:table-cell whitespace-nowrap">Title</TableHead>
                     <TableHead>
                       <div className="flex items-center gap-1">
@@ -302,6 +324,7 @@ export default function AdminTherapistsPage() {
                         Sessions
                       </div>
                     </TableHead>
+                    <TableHead className="hidden xl:table-cell whitespace-nowrap">Last Active</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="whitespace-nowrap">Actions</TableHead>
                   </TableRow>
@@ -325,6 +348,9 @@ export default function AdminTherapistsPage() {
                           {t.full_name || "—"}
                         </button>
                       </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <span className="text-xs text-gray-600">{t.email || "—"}</span>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">{t.title || "—"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -337,10 +363,20 @@ export default function AdminTherapistsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{t.total_sessions || 0}</TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {t.last_active ? (
+                          <div className="text-xs">
+                            <div>{new Date(t.last_active).toLocaleDateString()}</div>
+                            <div className="text-gray-500">{new Date(t.last_active).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">Never</span>
+                        )}
+                      </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <span className={`px-2 py-1 rounded-md text-xs border ${
-                          t.status === 'active' 
-                            ? 'bg-green-50 text-green-700 border-green-200' 
+                          t.status === 'active'
+                            ? 'bg-green-50 text-green-700 border-green-200'
                             : t.status === 'suspended'
                             ? 'bg-red-50 text-red-700 border-red-200'
                             : 'bg-yellow-50 text-yellow-700 border-yellow-200'
@@ -374,6 +410,15 @@ export default function AdminTherapistsPage() {
                 </TableBody>
               </Table>
               </div>
+            </div>
+            {/* Pagination Info */}
+            <div className="mt-4 px-4 sm:px-0 text-sm text-gray-600">
+              Showing <span className="font-semibold text-gray-900">{therapists.length}</span> of <span className="font-semibold text-gray-900">{totalCount}</span> therapists
+              {totalCount > therapists.length && (
+                <span className="ml-2 text-yellow-600 font-medium">
+                  (Displaying first {therapists.length} - increase limit to see all)
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>
