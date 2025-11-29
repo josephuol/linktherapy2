@@ -21,7 +21,17 @@ export async function POST(req: Request) {
   const supabase = supabaseAdmin()
 
   try {
-    // Delete related records first (order matters due to foreign keys)
+    // First, try to delete the auth user - this is the most critical step
+    // If this fails, we shouldn't delete anything else
+    const { error: authError } = await supabase.auth.admin.deleteUser(user_id)
+    if (authError) {
+      console.error("Error deleting auth user:", authError)
+      return NextResponse.json({
+        error: `Failed to delete auth user: ${authError.message}. The account may not exist or there may be a permissions issue.`
+      }, { status: 500 })
+    }
+
+    // Delete related records (order matters due to foreign keys)
     // Note: therapist_payment_actions has ON DELETE CASCADE, so it will be auto-deleted
 
     // Delete therapist_locations
@@ -58,11 +68,11 @@ export async function POST(req: Request) {
     await supabase.from("contact_requests").delete().eq("therapist_id", user_id)
     await supabase.from("contact_requests").delete().eq("assigned_therapist_id", user_id)
 
-    // Update therapist_invitations status to 'revoked' instead of deleting
-    // This preserves audit trail of who was invited
+    // Delete therapist_invitations that were accepted by this user
+    // Changed from update to delete to allow re-invitation
     await supabase
       .from("therapist_invitations")
-      .update({ status: "revoked" })
+      .delete()
       .eq("accepted_user_id", user_id)
 
     // Delete therapists record
@@ -70,14 +80,6 @@ export async function POST(req: Request) {
 
     // Delete profiles record
     await supabase.from("profiles").delete().eq("user_id", user_id)
-
-    // Finally, delete the auth user
-    const { error: authError } = await supabase.auth.admin.deleteUser(user_id)
-    if (authError) {
-      console.error("Error deleting auth user:", authError)
-      // Don't throw - the database records are already deleted
-      // The auth user might have been deleted already or not exist
-    }
 
     return NextResponse.json({
       ok: true,
