@@ -234,15 +234,22 @@ export default function AdminPaymentsPage() {
     return status === "pending" && new Date(dueDate) < new Date()
   }
 
-  const triggerBackfill = async () => {
+  const deletePayment = async (paymentId: string) => {
+    if (!confirm("Are you sure you want to delete this payment? This action cannot be undone.")) {
+      return
+    }
     try {
-      const res = await fetch("/api/admin/backfill-commissions", { method: "POST" })
+      const res = await fetch("/api/admin/payments/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_id: paymentId })
+      })
       const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || "Failed to backfill")
+      if (!res.ok) throw new Error(json?.error || "Failed to delete payment")
       await loadPayments()
-      alert(`Backfill complete. Updated ${json.updated} records.`)
+      alert("Payment deleted successfully!")
     } catch (e: any) {
-      alert(`Backfill failed: ${e?.message || "Unknown error"}`)
+      alert(`Failed to delete payment: ${e?.message || "Unknown error"}`)
     }
   }
 
@@ -267,7 +274,6 @@ export default function AdminPaymentsPage() {
               </SelectContent>
             </Select>
             <Button size="sm" variant="outline" onClick={() => loadPayments()} className="flex-1 sm:flex-none">Refresh</Button>
-            <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99] flex-1 sm:flex-none" onClick={triggerBackfill}>Backfill</Button>
           </div>
         </div>
         
@@ -393,8 +399,8 @@ export default function AdminPaymentsPage() {
                             Mark Paid Again
                           </Button>
                         )}
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => {
                             setSelectedPayment(payment)
@@ -403,6 +409,13 @@ export default function AdminPaymentsPage() {
                           }}
                         >
                           Notes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deletePayment(payment.id)}
+                        >
+                          Delete
                         </Button>
                       </TableCell>
                     </TableRow>
