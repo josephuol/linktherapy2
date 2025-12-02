@@ -86,8 +86,17 @@ export default function AdminDashboardPage() {
         router.replace("/admin/login")
         return
       }
-      const { data } = await supabase.from("therapists").select("user_id, full_name, title, status, ranking_points, churn_rate_monthly, total_sessions").order("ranking_points", { ascending: false }).limit(1000)
-      setTherapists(data ?? [])
+
+      // Fetch therapists via admin API to bypass RLS
+      const therapistsRes = await fetch("/api/admin/therapists")
+      if (therapistsRes.ok) {
+        const therapistsJson = await therapistsRes.json()
+        setTherapists(therapistsJson.therapists ?? [])
+      } else {
+        console.error("Failed to fetch therapists")
+        setTherapists([])
+      }
+
       // Revenue and activity metrics
       const now = new Date()
       const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)

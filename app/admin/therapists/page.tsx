@@ -54,71 +54,33 @@ export default function AdminTherapistsPage() {
   const [deleting, setDeleting] = useState(false)
 
   const loadTherapists = async () => {
-    // Fetch therapists - explicitly set a large limit to get all records
-    const { data: therapistsData, error: therapistsError, count } = await supabase
-      .from("therapists")
-      .select("user_id, full_name, title, status, ranking_points, total_sessions", { count: 'exact' })
-      .order("ranking_points", { ascending: false })
-      .limit(1000) // Set explicit high limit
+    // Fetch therapists via admin API to bypass RLS
+    try {
+      const res = await fetch("/api/admin/therapists")
 
-    if (therapistsError) {
-      console.error("Error loading therapists:", therapistsError)
-      toast.error("Failed to load therapists")
-      return
-    }
-
-    console.log(`Loaded ${therapistsData?.length || 0} therapists out of ${count} total`)
-    setTotalCount(count || 0)
-
-    if (!therapistsData || therapistsData.length === 0) {
-      setTherapists([])
-      return
-    }
-
-    // Fetch profiles for all therapist user_ids
-    const userIds = therapistsData.map(t => t.user_id)
-    const { data: profilesData, error: profilesError } = await supabase
-      .from("profiles")
-      .select("user_id, email")
-      .in("user_id", userIds)
-
-    if (profilesError) {
-      console.error("Error loading profiles:", profilesError)
-    }
-
-    // Fetch last active time for each therapist (most recent session)
-    const { data: sessionsData } = await supabase
-      .from("sessions")
-      .select("therapist_id, session_date")
-      .in("therapist_id", userIds)
-      .order("session_date", { ascending: false })
-
-    // Create map of therapist_id to most recent session date
-    const lastActiveMap = new Map<string, string>()
-    if (sessionsData) {
-      for (const session of sessionsData) {
-        if (!lastActiveMap.has(session.therapist_id)) {
-          lastActiveMap.set(session.therapist_id, session.session_date)
-        }
+      if (!res.ok) {
+        console.error("Error loading therapists:", res.statusText)
+        toast.error("Failed to load therapists")
+        return
       }
+
+      const data = await res.json()
+      const therapistsData = data.therapists || []
+      const count = data.count || 0
+
+      console.log(`Loaded ${therapistsData.length} therapists out of ${count} total`)
+      setTotalCount(count)
+
+      if (therapistsData.length === 0) {
+        setTherapists([])
+        return
+      }
+
+      setTherapists(therapistsData as Therapist[])
+    } catch (error) {
+      console.error("Exception loading therapists:", error)
+      toast.error("Failed to load therapists")
     }
-
-    // Create a map of user_id to email for quick lookup
-    const emailMap = new Map(profilesData?.map(p => [p.user_id, p.email]) || [])
-
-    // Merge therapists with their emails and last active
-    const therapistsWithEmail = therapistsData.map(t => ({
-      user_id: t.user_id,
-      full_name: t.full_name,
-      title: t.title,
-      status: t.status,
-      ranking_points: t.ranking_points,
-      total_sessions: t.total_sessions,
-      email: emailMap.get(t.user_id) || undefined,
-      last_active: lastActiveMap.get(t.user_id) || null
-    }))
-
-    setTherapists(therapistsWithEmail as Therapist[])
   }
 
   useEffect(() => {
