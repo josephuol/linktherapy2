@@ -8,27 +8,31 @@ export async function GET(req: Request) {
 
   const supabase = supabaseAdmin()
 
-  // Use admin client to bypass RLS and get ALL therapists
-  const { data: therapists, error: therapistsError, count } = await supabase
-    .from("therapists")
-    .select("user_id, full_name, title, status, ranking_points, total_sessions, churn_rate_monthly", { count: 'exact' })
-    .order("ranking_points", { ascending: false })
-    .limit(10000) // High limit to ensure we get all therapists
+  // Fetch ALL profiles with role='therapist' to ensure we don't miss anyone
+  const { data: profilesData, error: profilesError, count: profilesCount } = await supabase
+    .from("profiles")
+    .select("user_id, email, full_name, created_at", { count: 'exact' })
+    .eq("role", "therapist")
+    .order("created_at", { ascending: false })
+    .limit(10000)
 
-  if (therapistsError) {
-    console.error("Error fetching therapists:", therapistsError)
-    return NextResponse.json({ error: "Failed to fetch therapists" }, { status: 500 })
+  if (profilesError) {
+    console.error("Error fetching profiles:", profilesError)
+    return NextResponse.json({ error: "Failed to fetch therapist profiles" }, { status: 500 })
   }
 
-  if (!therapists || therapists.length === 0) {
+  if (!profilesData || profilesData.length === 0) {
     return NextResponse.json({ therapists: [], count: 0 })
   }
 
-  // Fetch profiles for all therapist user_ids to get emails
-  const userIds = therapists.map(t => t.user_id)
-  const { data: profilesData } = await supabase
-    .from("profiles")
-    .select("user_id, email")
+  console.log(`[Admin API] Found ${profilesData.length} profiles with role='therapist'`)
+
+  const userIds = profilesData.map(p => p.user_id)
+
+  // Fetch therapist details for those who have completed onboarding
+  const { data: therapistsData } = await supabase
+    .from("therapists")
+    .select("user_id, full_name, title, status, ranking_points, total_sessions, churn_rate_monthly")
     .in("user_id", userIds)
 
   // Fetch last active time for each therapist (most recent session)
@@ -38,8 +42,10 @@ export async function GET(req: Request) {
     .in("therapist_id", userIds)
     .order("session_date", { ascending: false })
 
-  // Create map of therapist_id to most recent session date
+  // Create maps for quick lookup
+  const therapistMap = new Map(therapistsData?.map(t => [t.user_id, t]) || [])
   const lastActiveMap = new Map<string, string>()
+
   if (sessionsData) {
     for (const session of sessionsData) {
       if (!lastActiveMap.has(session.therapist_id)) {
@@ -48,18 +54,36 @@ export async function GET(req: Request) {
     }
   }
 
-  // Create a map of user_id to email for quick lookup
-  const emailMap = new Map(profilesData?.map(p => [p.user_id, p.email]) || [])
+  // Merge profiles with therapist data
+  const allTherapists = profilesData.map(profile => {
+    const therapist = therapistMap.get(profile.user_id)
 
-  // Merge therapists with their emails and last active
-  const therapistsWithEmail = therapists.map(t => ({
-    ...t,
-    email: emailMap.get(t.user_id) || null,
-    last_active: lastActiveMap.get(t.user_id) || null
-  }))
+    return {
+      user_id: profile.user_id,
+      email: profile.email,
+      full_name: therapist?.full_name || profile.full_name || "(Pending Onboarding)",
+      title: therapist?.title || null,
+      status: therapist?.status || "not_onboarded",
+      ranking_points: therapist?.ranking_points || 0,
+      total_sessions: therapist?.total_sessions || 0,
+      churn_rate_monthly: therapist?.churn_rate_monthly || 0,
+      last_active: lastActiveMap.get(profile.user_id) || null,
+      has_completed_onboarding: !!therapist
+    }
+  })
+
+  // Sort by ranking points (descending), then by created date
+  allTherapists.sort((a, b) => {
+    if (b.ranking_points !== a.ranking_points) {
+      return b.ranking_points - a.ranking_points
+    }
+    return 0
+  })
+
+  console.log(`[Admin API] Returning ${allTherapists.length} total therapists (${allTherapists.filter(t => !t.has_completed_onboarding).length} pending onboarding)`)
 
   return NextResponse.json({
-    therapists: therapistsWithEmail,
-    count: count || 0
+    therapists: allTherapists,
+    count: profilesCount || 0
   })
 }
