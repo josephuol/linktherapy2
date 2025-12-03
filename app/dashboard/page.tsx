@@ -2,18 +2,21 @@
 
 import { useEffect, useState } from "react"
 import { supabaseBrowser } from "@/lib/supabase-browser"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { TherapistMetrics } from "@/components/dashboard/TherapistMetrics"
 import ContactRequestsTable from "@/components/dashboard/ContactRequestsTable"
 import PaymentNotifications from "@/components/dashboard/PaymentNotifications"
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Calendar as CalendarIcon, Clock, User, TrendingUp, DollarSign, AlertCircle, CheckCircle2, XCircle, Loader2, Users, Bell, Settings, LogOut } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { format } from "date-fns"
 
 interface ContactRequest {
   id: string;
@@ -81,6 +84,7 @@ interface SessionRow {
 export default function TherapistDashboardPage() {
   const supabase = supabaseBrowser()
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<TherapistProfile | null>(null)
   const [requests, setRequests] = useState<ContactRequest[]>([])
@@ -90,7 +94,7 @@ export default function TherapistDashboardPage() {
   const [upcomingSessions, setUpcomingSessions] = useState<SessionRow[]>([])
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false)
   const [selectedSession, setSelectedSession] = useState<SessionRow | null>(null)
-  const [newSessionDate, setNewSessionDate] = useState("")
+  const [newSessionDate, setNewSessionDate] = useState<Date | undefined>()
   const [newSessionTime, setNewSessionTime] = useState("")
   const timeOptions = Array.from({ length: (20 - 8) * 2 + 1 }, (_, i) => {
     const totalMinutes = (8 * 60) + i * 30
@@ -192,7 +196,6 @@ export default function TherapistDashboardPage() {
     try {
       const { data: prof } = await supabase.from("profiles").select("*").eq("user_id", userId).single()
       const { data: therapistData } = await supabase.from("therapists").select("*").eq("user_id", userId).single()
-      // Always set profile, even if therapistData doesn't exist yet
       setProfile({
         user_id: userId,
         full_name: therapistData?.full_name || prof?.full_name || "",
@@ -237,6 +240,7 @@ export default function TherapistDashboardPage() {
         .eq("status", "scheduled")
         .gte("session_date", nowIso)
         .order("session_date", { ascending: true })
+        .limit(5)
       setUpcomingSessions((futureSessions as any) || [])
     } catch (error) {
       console.error("Error loading data:", error)
@@ -247,14 +251,11 @@ export default function TherapistDashboardPage() {
   const recalcPayment = async (sessionIso: string) => {
     try {
       if (!profile?.user_id || !sessionIso) return
-
-      // Get auth session to pass token
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         console.error('No auth token available for recalc')
         return
       }
-
       const response = await fetch('/api/admin/payments/recalc', {
         method: 'POST',
         headers: {
@@ -263,7 +264,6 @@ export default function TherapistDashboardPage() {
         },
         body: JSON.stringify({ therapist_id: profile.user_id, session_date: sessionIso })
       })
-
       if (!response.ok) {
         const error = await response.json()
         console.error('Error recalculating payment:', error)
@@ -279,7 +279,7 @@ export default function TherapistDashboardPage() {
       if (error) throw error
       const session = await supabase.auth.getSession()
       if (session.data.session) { await loadData(session.data.session.user.id) }
-      toast({ title: "Success", description: "Client request accepted successfully", variant: "default" })
+      toast({ title: "Success", description: "Client request accepted successfully" })
     } catch (error) {
       console.error("Error accepting request:", error)
       toast({ title: "Error", description: "Failed to accept request", variant: "destructive" })
@@ -292,7 +292,7 @@ export default function TherapistDashboardPage() {
       if (error) throw error
       const session = await supabase.auth.getSession()
       if (session.data.session) { await loadData(session.data.session.user.id) }
-      toast({ title: "Request Rejected", description: "Client request has been rejected", variant: "default" })
+      toast({ title: "Request Rejected", description: "Client request has been rejected" })
     } catch (error) {
       console.error("Error rejecting request:", error)
       toast({ title: "Error", description: "Failed to reject request", variant: "destructive" })
@@ -303,8 +303,6 @@ export default function TherapistDashboardPage() {
     try {
       const request = requests.find(r => r.id === requestId)
       if (!request) { throw new Error("Request not found") }
-      
-      // Get user_id from profile or session as fallback
       let therapistId = profile?.user_id
       if (!therapistId) {
         const { data: { session } } = await supabase.auth.getSession()
@@ -312,10 +310,8 @@ export default function TherapistDashboardPage() {
           throw new Error("User not authenticated")
         }
         therapistId = session.user.id
-        // Reload profile data
         await loadData(therapistId)
       }
-      
       const { error: updateError } = await supabase.from("contact_requests").update({ status: "scheduled" }).eq("id", requestId)
       if (updateError) { throw new Error(`Failed to update request: ${updateError.message}`) }
       const { error: sessionError } = await supabase.from("sessions").insert({
@@ -330,7 +326,7 @@ export default function TherapistDashboardPage() {
       if (sessionError) { throw new Error(`Failed to create session: ${sessionError.message}`) }
       await recalcPayment(sessionIsoDateTime)
       await loadData(therapistId)
-      toast({ title: "Session Scheduled", description: "Session has been created for this client. Your metrics will update shortly.", variant: "default" })
+      toast({ title: "Session Scheduled", description: "Session has been created successfully" })
     } catch (error: any) {
       console.error("Error scheduling session:", error)
       toast({ title: "Error", description: error.message || "Failed to schedule session", variant: "destructive" })
@@ -341,8 +337,6 @@ export default function TherapistDashboardPage() {
     try {
       const request = requests.find(r => r.id === requestId)
       if (!request) { throw new Error("Request not found") }
-      
-      // Get user_id from profile or session as fallback
       let therapistId = profile?.user_id
       if (!therapistId) {
         const { data: { session } } = await supabase.auth.getSession()
@@ -350,10 +344,8 @@ export default function TherapistDashboardPage() {
           throw new Error("User not authenticated")
         }
         therapistId = session.user.id
-        // Reload profile data
         await loadData(therapistId)
       }
-      
       const { error: sessionError } = await supabase.from("sessions").insert({
         therapist_id: therapistId,
         client_email: request.client_email,
@@ -363,13 +355,54 @@ export default function TherapistDashboardPage() {
         price: 100,
         status: "scheduled"
       })
-      if (sessionError) { throw new Error(`Failed to create new session: ${sessionError.message}`) }
+      if (sessionError) { throw new Error(`Failed to create session: ${sessionError.message}`) }
       await recalcPayment(sessionIsoDateTime)
       await loadData(therapistId)
-      toast({ title: "Session Rescheduled", description: "A new session has been scheduled for this client.", variant: "default" })
+      toast({ title: "Session Rescheduled", description: "Session has been rescheduled successfully" })
     } catch (error: any) {
       console.error("Error rescheduling session:", error)
       toast({ title: "Error", description: error.message || "Failed to reschedule session", variant: "destructive" })
+    }
+  }
+
+  const openRescheduleForSession = (session: SessionRow) => {
+    setSelectedSession(session)
+    setNewSessionDate(undefined)
+    setNewSessionTime("")
+    setRescheduleReason("")
+    setRescheduleDialogOpen(true)
+  }
+
+  const handleConfirmRescheduleExisting = async () => {
+    if (!selectedSession || !newSessionDate || !newSessionTime) {
+      toast({ title: "Error", description: "Please select a date and time", variant: "destructive" })
+      return
+    }
+    try {
+      const dateStr = format(newSessionDate, 'yyyy-MM-dd')
+      const newIso = `${dateStr}T${newSessionTime}:00.000Z`
+      const { error: upErr } = await supabase.from("sessions").update({ status: "rescheduled" }).eq("id", selectedSession.id)
+      if (upErr) throw upErr
+      const { error: insErr } = await supabase.from("sessions").insert({
+        therapist_id: selectedSession.therapist_id,
+        client_email: selectedSession.client_email,
+        client_name: selectedSession.client_name,
+        session_date: newIso,
+        duration_minutes: selectedSession.duration_minutes || 60,
+        price: selectedSession.price || 100,
+        status: "scheduled",
+        rescheduled_from: selectedSession.id
+      })
+      if (insErr) throw insErr
+      await recalcPayment(newIso)
+      const session = await supabase.auth.getSession()
+      if (session.data.session) { await loadData(session.data.session.user.id) }
+      setRescheduleDialogOpen(false)
+      setSelectedSession(null)
+      toast({ title: "Success", description: "Session rescheduled successfully" })
+    } catch (err: any) {
+      console.error("Reschedule error:", err)
+      toast({ title: "Error", description: err.message || "Failed to reschedule", variant: "destructive" })
     }
   }
 
@@ -377,7 +410,8 @@ export default function TherapistDashboardPage() {
     try {
       const { error } = await supabase.from("therapist_notifications").update({ is_read: true }).eq("id", notificationId)
       if (error) throw error
-      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      const session = await supabase.auth.getSession()
+      if (session.data.session) { await loadData(session.data.session.user.id) }
     } catch (error) {
       console.error("Error marking notification as read:", error)
     }
@@ -385,263 +419,341 @@ export default function TherapistDashboardPage() {
 
   const handleDismissAllNotifications = async () => {
     try {
-      const { error } = await supabase.from("therapist_notifications").update({ is_read: true }).eq("therapist_id", profile?.user_id).eq("is_read", false)
+      if (!profile?.user_id) return
+      const { error } = await supabase.from("therapist_notifications").update({ is_read: true }).eq("therapist_id", profile.user_id).eq("is_read", false)
       if (error) throw error
-      setNotifications([])
+      const session = await supabase.auth.getSession()
+      if (session.data.session) { await loadData(session.data.session.user.id) }
+      toast({ title: "Success", description: "All notifications dismissed" })
     } catch (error) {
       console.error("Error dismissing notifications:", error)
+      toast({ title: "Error", description: "Failed to dismiss notifications", variant: "destructive" })
     }
   }
 
-  const openRescheduleForSession = (s: SessionRow) => {
-    setSelectedSession(s)
-    setNewSessionDate("")
-    setNewSessionTime("")
-    setRescheduleReason("")
-    setRescheduleDialogOpen(true)
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
   }
 
-  const handleConfirmRescheduleExisting = async () => {
-    if (!selectedSession) return
-    
-    // Get user_id from profile or session as fallback
-    let therapistId = profile?.user_id
-    if (!therapistId) {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        toast({ title: "Error", description: "User not authenticated", variant: "destructive" })
-        return
-      }
-      therapistId = session.user.id
-      // Reload profile data
-      await loadData(therapistId)
-    }
-    
-    try {
-      const originalDate = new Date(selectedSession.session_date)
-      if (selectedSession.status !== 'scheduled' || originalDate.getTime() <= Date.now()) { throw new Error("Only upcoming scheduled sessions can be rescheduled") }
-      const newIso = new Date(`${newSessionDate}T${newSessionTime}:00`).toISOString()
-      const { data: original, error: fetchErr } = await supabase.from("sessions").select("*").eq("id", selectedSession.id).single()
-      if (fetchErr || !original) throw new Error(fetchErr?.message || "Original session not found")
-      const { error: updateErr } = await supabase.from("sessions").update({ status: 'rescheduled' }).eq("id", selectedSession.id)
-      if (updateErr) throw new Error(updateErr.message)
-      const { error: insertErr } = await supabase.from("sessions").insert({
-        therapist_id: therapistId,
-        client_email: original.client_email,
-        client_name: original.client_name,
-        session_date: newIso,
-        duration_minutes: original.duration_minutes || 60,
-        price: original.price || 100,
-        status: 'scheduled',
-        rescheduled_from: selectedSession.id,
-        reschedule_reason: rescheduleReason || null,
-        rescheduled_by: therapistId,
-      })
-      if (insertErr) throw new Error(insertErr.message)
-      await recalcPayment(newIso)
-      await loadData(therapistId)
-      setRescheduleDialogOpen(false)
-      setSelectedSession(null)
-      setNewSessionDate("")
-      setNewSessionTime("")
-      setRescheduleReason("")
-      toast({ title: "Session rescheduled", description: "New session created and original marked as rescheduled" })
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to reschedule", variant: "destructive" })
-    }
-  }
+  const newRequestsCount = requests.filter(r => r.status === 'new').length
+  const todaysSessions = upcomingSessions.filter(s => {
+    const sessionDate = new Date(s.session_date)
+    const today = new Date()
+    return sessionDate.toDateString() === today.toDateString()
+  }).length
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-[#056DBA]" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div>
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#056DBA]">Therapist Dashboard</h1>
-            <p className="text-gray-600 mt-2">Welcome back, {profile?.full_name}</p>
+    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#056DBA] to-[#0891E3] p-8 text-white shadow-xl">
+          <div className="relative z-10">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl md:text-4xl font-bold">
+                    Welcome back, {profile?.full_name?.split(' ')[0]}!
+                  </h1>
+                  {metrics?.hasGreenDot && (
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" title="Recent bonus earned!" />
+                  )}
+                </div>
+                <p className="text-blue-100 text-lg">Here's what's happening with your practice today</p>
+              </div>
+              <Button
+                variant="secondary"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-5 w-5 text-blue-200" />
+                  <p className="text-sm text-blue-100">New Requests</p>
+                </div>
+                <p className="text-3xl font-bold">{newRequestsCount}</p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CalendarIcon className="h-5 w-5 text-blue-200" />
+                  <p className="text-sm text-blue-100">Today's Sessions</p>
+                </div>
+                <p className="text-3xl font-bold">{todaysSessions}</p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-5 w-5 text-blue-200" />
+                  <p className="text-sm text-blue-100">Ranking</p>
+                </div>
+                <p className="text-3xl font-bold">{Math.round((profile?.ranking_points || 50) / 100)}%</p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-5 w-5 text-blue-200" />
+                  <p className="text-sm text-blue-100">Commission</p>
+                </div>
+                <p className="text-3xl font-bold">${metrics?.bimonthlyCommission || 0}</p>
+              </div>
+            </div>
           </div>
-          <Button 
-            className="bg-[#056DBA] hover:bg-[#045A99] text-white" 
+
+          {/* Background decoration */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24" />
+        </div>
+
+        {/* Payment Notifications */}
+        {paymentStatus && (paymentStatus.hasPendingPayments || notifications.length > 0) && (
+          <PaymentNotifications
+            notifications={notifications}
+            paymentStatus={paymentStatus}
+            onMarkAsRead={handleMarkNotificationAsRead}
+            onDismissAll={handleDismissAllNotifications}
+          />
+        )}
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Button
+            className="h-auto flex-col items-start p-6 bg-white hover:bg-gray-50 text-left border-2 border-[#056DBA]/10 hover:border-[#056DBA]/30 transition-all"
+            variant="outline"
             onClick={() => router.push("/dashboard/profile")}
           >
-            Edit Profile
+            <User className="h-6 w-6 text-[#056DBA] mb-2" />
+            <div>
+              <p className="font-semibold text-gray-900">Edit Profile</p>
+              <p className="text-sm text-gray-500">Update your information</p>
+            </div>
+          </Button>
+
+          <Button
+            className="h-auto flex-col items-start p-6 bg-white hover:bg-gray-50 text-left border-2 border-[#36A72B]/10 hover:border-[#36A72B]/30 transition-all"
+            variant="outline"
+            onClick={() => window.scrollTo({ top: document.getElementById('upcoming-sessions')?.offsetTop || 0, behavior: 'smooth' })}
+          >
+            <CalendarIcon className="h-6 w-6 text-[#36A72B] mb-2" />
+            <div>
+              <p className="font-semibold text-gray-900">View Schedule</p>
+              <p className="text-sm text-gray-500">{upcomingSessions.length} upcoming sessions</p>
+            </div>
+          </Button>
+
+          <Button
+            className="h-auto flex-col items-start p-6 bg-white hover:bg-gray-50 text-left border-2 border-purple-500/10 hover:border-purple-500/30 transition-all"
+            variant="outline"
+            onClick={() => window.scrollTo({ top: document.getElementById('contact-requests')?.offsetTop || 0, behavior: 'smooth' })}
+          >
+            <Bell className="h-6 w-6 text-purple-600 mb-2" />
+            <div>
+              <p className="font-semibold text-gray-900">Contact Requests</p>
+              <p className="text-sm text-gray-500">{newRequestsCount} new requests</p>
+            </div>
           </Button>
         </div>
 
-        <div className="space-y-6">
-          {/* Payment Notifications */}
-          {paymentStatus && (
-            <PaymentNotifications
-              notifications={notifications}
-              paymentStatus={paymentStatus}
-              onMarkAsRead={handleMarkNotificationAsRead}
-              onDismissAll={handleDismissAllNotifications}
-            />
-          )}
-
-          {/* Metrics Dashboard */}
-          {metrics && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Performance Metrics</h2>
-              <TherapistMetrics metrics={metrics} />
+        {/* Metrics Dashboard */}
+        {metrics && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Performance Metrics</h2>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                Updated in real-time
+              </Badge>
             </div>
-          )}
+            <TherapistMetrics metrics={metrics} />
+          </div>
+        )}
 
-          {/* Profile Summary */}
-          <div className="grid gap-6 lg:grid-cols-4">
-            <Card className="lg:col-span-1">
-              <CardHeader>
-                <div className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  My Profile
-                  {paymentStatus?.hasPendingPayments && paymentStatus.daysOverdue > 0 && (
-                    <div className="w-3 h-3 bg-red-500 rounded-full" title="Payment overdue"></div>
-                  )}
-                  {metrics?.hasGreenDot && (
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" title="Recent payment bonus earned!"></div>
-                  )}
+        {/* Upcoming Sessions */}
+        <Card id="upcoming-sessions" className="border-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <CalendarIcon className="h-6 w-6 text-[#056DBA]" />
+                  Upcoming Sessions
+                </CardTitle>
+                <CardDescription className="mt-1">Your scheduled appointments</CardDescription>
+              </div>
+              {upcomingSessions.length > 0 && (
+                <Badge className="bg-[#056DBA] text-white">
+                  {upcomingSessions.length} session{upcomingSessions.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {upcomingSessions.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <CalendarIcon className="h-12 w-12 text-gray-400" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Name:</span>
-                    <span className="font-medium">{profile?.full_name || "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Role:</span>
-                    <span className="font-medium capitalize">{profile?.role}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Ranking:</span>
-                    <span className="font-medium">{profile?.ranking_points}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Sessions:</span>
-                    <span className="font-medium">{profile?.total_sessions}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No upcoming sessions</h3>
+                <p className="text-gray-500 mb-6">You don't have any scheduled sessions at the moment</p>
+                <Button onClick={() => window.scrollTo({ top: document.getElementById('contact-requests')?.offsetTop || 0, behavior: 'smooth' })}>
+                  Check Contact Requests
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingSessions.map(s => {
+                  const sessionDate = new Date(s.session_date)
+                  const isToday = sessionDate.toDateString() === new Date().toDateString()
+                  const isTomorrow = sessionDate.toDateString() === new Date(Date.now() + 86400000).toDateString()
 
-            {/* Upcoming Sessions */}
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <div className="text-lg font-semibold text-gray-900">Upcoming Sessions</div>
-              </CardHeader>
-              <CardContent>
-                {upcomingSessions.length === 0 ? (
-                  <div className="text-sm text-gray-600">No upcoming sessions</div>
-                ) : (
-                  <div className="space-y-3">
-                    {upcomingSessions.map(s => (
-                      <div key={s.id} className="flex items-center justify-between border rounded-md p-3">
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">{s.client_name || 'Session'}</div>
-                          <div className="text-gray-600">{new Date(s.session_date).toLocaleString()}</div>
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-4 rounded-lg border-2 hover:border-[#056DBA]/30 transition-all bg-white"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-16 h-16 bg-[#056DBA]/10 rounded-lg flex items-center justify-center">
+                          <CalendarIcon className="h-8 w-8 text-[#056DBA]" />
                         </div>
-                        <Button variant="outline" onClick={() => openRescheduleForSession(s)}>Reschedule</Button>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-gray-900 text-lg">{s.client_name || 'Session'}</p>
+                            {isToday && (
+                              <Badge className="bg-green-500 text-white">Today</Badge>
+                            )}
+                            {isTomorrow && (
+                              <Badge className="bg-blue-500 text-white">Tomorrow</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <CalendarIcon className="h-4 w-4" />
+                              {format(sessionDate, 'EEEE, MMM d, yyyy')}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              {format(sessionDate, 'h:mm a')}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openRescheduleForSession(s)}
+                        className="ml-4"
+                      >
+                        Reschedule
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-            {/* Contact Requests Table */}
-            <div className="lg:col-span-3">
-              <ContactRequestsTable
-                requests={requests}
-                onAcceptRequest={handleAcceptRequest}
-                onRejectRequest={handleRejectRequest}
-                onScheduleSession={handleScheduleSession}
-                onRescheduleSession={handleRescheduleSession}
+        {/* Contact Requests */}
+        <div id="contact-requests">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="h-6 w-6 text-[#056DBA]" />
+            <h2 className="text-2xl font-bold text-gray-900">Contact Requests</h2>
+            {newRequestsCount > 0 && (
+              <Badge className="bg-red-500 text-white">
+                {newRequestsCount} new
+              </Badge>
+            )}
+          </div>
+          <ContactRequestsTable
+            requests={requests}
+            onAcceptRequest={handleAcceptRequest}
+            onRejectRequest={handleRejectRequest}
+            onScheduleSession={handleScheduleSession}
+            onRescheduleSession={handleRescheduleSession}
+          />
+        </div>
+      </div>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedSession && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Rescheduling session with:</p>
+                <p className="font-semibold">{selectedSession.client_name}</p>
+                <p className="text-sm text-gray-500">
+                  Originally: {format(new Date(selectedSession.session_date), 'MMM d, yyyy h:mm a')}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <Label>New Date</Label>
+              <Calendar
+                mode="single"
+                selected={newSessionDate}
+                onSelect={setNewSessionDate}
+                className="rounded-md border mt-2"
+                disabled={(date) => date < new Date()}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="time">New Time</Label>
+              <Select value={newSessionTime} onValueChange={setNewSessionTime}>
+                <SelectTrigger id="time">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="reason">Reason (optional)</Label>
+              <Input
+                id="reason"
+                placeholder="E.g., schedule conflict"
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
               />
             </div>
           </div>
-        </div>
-        <RescheduleDialogWrapper
-          open={rescheduleDialogOpen}
-          onOpenChange={setRescheduleDialogOpen}
-          newSessionDate={newSessionDate}
-          setNewSessionDate={setNewSessionDate}
-          newSessionTime={newSessionTime}
-          setNewSessionTime={setNewSessionTime}
-          rescheduleReason={rescheduleReason}
-          setRescheduleReason={setRescheduleReason}
-          onConfirm={handleConfirmRescheduleExisting}
-        />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRescheduleExisting} disabled={!newSessionDate || !newSessionTime}>
+              Confirm Reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
-// Reschedule existing session dialog
-function RescheduleDialogWrapper({
-  open,
-  onOpenChange,
-  newSessionDate,
-  setNewSessionDate,
-  newSessionTime,
-  setNewSessionTime,
-  rescheduleReason,
-  setRescheduleReason,
-  onConfirm
-}: any) {
-  const timeOptions = Array.from({ length: (20 - 8) * 2 + 1 }, (_, i) => {
-    const totalMinutes = (8 * 60) + i * 30
-    const hh = String(Math.floor(totalMinutes / 60)).padStart(2, '0')
-    const mm = String(totalMinutes % 60).padStart(2, '0')
-    return `${hh}:${mm}`
-  })
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Reschedule Session</DialogTitle>
-        </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div>
-            <Label>New Date</Label>
-            <div className="mt-2">
-              <Calendar
-                mode="single"
-                selected={newSessionDate ? new Date(newSessionDate) : undefined}
-                onSelect={(d: any) => {
-                  if (!d) { setNewSessionDate(""); return }
-                  const date = new Date(d)
-                  const y = date.getFullYear()
-                  const m = String(date.getMonth() + 1).padStart(2, '0')
-                  const day = String(date.getDate()).padStart(2, '0')
-                  setNewSessionDate(`${y}-${m}-${day}`)
-                }}
-                disabled={{ before: new Date() }}
-              />
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="new-time">New Time</Label>
-            <Select value={newSessionTime} onValueChange={setNewSessionTime}>
-              <SelectTrigger id="new-time" className="mt-2">
-                <SelectValue placeholder="Select time" />
-              </SelectTrigger>
-              <SelectContent>
-                {timeOptions.map((t: string) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="reason">Reason (optional)</Label>
-            <Input id="reason" value={rescheduleReason} onChange={(e: any) => setRescheduleReason(e.target.value)} className="mt-2" placeholder="Provide a reason" />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!newSessionDate || !newSessionTime} onClick={onConfirm}>Confirm</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-
