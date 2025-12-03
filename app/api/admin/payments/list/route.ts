@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-server"
 import { requireAdmin } from "@/lib/auth-helpers"
+import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
 
 /**
  * GET /api/admin/payments/list
@@ -47,24 +48,70 @@ export async function GET(req: Request) {
       therapist_name: p.therapists?.full_name
     })) || []
 
+    // Calculate commissions dynamically for each payment if commission_amount is 0 or missing
+    const paymentsWithCalculatedCommissions = await Promise.all(
+      formattedData.map(async (payment: any) => {
+        let commission = payment.commission_amount || 0
+        let totalSessions = payment.total_sessions || 0
+
+        // If commission is 0, calculate it from actual sessions
+        if (commission === 0 || commission === null) {
+          const periodStartIso = new Date(payment.payment_period_start).toISOString()
+          const periodEndDate = new Date(payment.payment_period_end)
+          const endExclusiveIso = new Date(periodEndDate.getTime() + 24 * 60 * 60 * 1000).toISOString()
+
+          // Count sessions for this period
+          const { count, error: countError } = await supabase
+            .from("sessions")
+            .select("id", { count: "exact", head: true })
+            .eq("therapist_id", payment.therapist_id)
+            .in("status", ["scheduled", "completed"])
+            .gte("session_date", periodStartIso)
+            .lt("session_date", endExclusiveIso)
+
+          if (!countError && count !== null) {
+            totalSessions = count
+            commission = count * ADMIN_COMMISSION_PER_SESSION
+
+            // Update the payment record with calculated values
+            await supabase
+              .from("therapist_payments")
+              .update({
+                total_sessions: totalSessions,
+                commission_amount: commission
+              })
+              .eq("id", payment.id)
+
+            console.log(`[Payments List] Updated payment ${payment.id}: ${totalSessions} sessions, $${commission} commission`)
+          }
+        }
+
+        return {
+          ...payment,
+          total_sessions: totalSessions,
+          commission_amount: commission
+        }
+      })
+    )
+
     // Fetch monthly commission from therapist_metrics for current month
     const metricsMonth = new Date().toISOString().slice(0, 7) + "-01"
-    const therapistIds = Array.from(new Set(formattedData.map((p: any) => p.therapist_id))).filter(Boolean)
+    const therapistIds = Array.from(new Set(paymentsWithCalculatedCommissions.map((p: any) => p.therapist_id))).filter(Boolean)
     let monthlyMap = new Map<string, number>()
-    
+
     if (therapistIds.length > 0) {
       const { data: metrics } = await supabase
         .from("therapist_metrics")
         .select("therapist_id, commission_earned, month_year")
         .eq("month_year", metricsMonth)
         .in("therapist_id", therapistIds)
-      
+
       for (const m of metrics || []) {
         monthlyMap.set(m.therapist_id, Number(m.commission_earned) || 0)
       }
     }
 
-    const withMonthly = formattedData.map((p: any) => ({
+    const withMonthly = paymentsWithCalculatedCommissions.map((p: any) => ({
       ...p,
       monthly_commission: monthlyMap.get(p.therapist_id) ?? 0
     }))

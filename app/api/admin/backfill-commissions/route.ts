@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       if (countOutErr) return NextResponse.json({ error: countOutErr.message }, { status: 400 })
 
       const totalSessions = allCount || 0
-      const commission = (outCount || 0) * ADMIN_COMMISSION_PER_SESSION
+      const commission = (allCount || 0) * ADMIN_COMMISSION_PER_SESSION
 
       const { error: upErr } = await supabase
         .from("therapist_payments")

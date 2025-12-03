@@ -98,12 +98,30 @@ export default function AdminCalendarPage() {
   const recalcPayment = async (therapistId?: string | null, sessionIso?: string | null) => {
     try {
       if (!therapistId || !sessionIso) return
-      await fetch('/api/admin/payments/recalc', {
+
+      // Get auth session to pass token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.error('No auth token available for recalc')
+        return
+      }
+
+      const response = await fetch('/api/admin/payments/recalc', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({ therapist_id: therapistId, session_date: sessionIso })
       })
-    } catch {}
+
+      if (!response.ok) {
+        const error = await response.json()
+        console.error('Error recalculating payment:', error)
+      }
+    } catch (error) {
+      console.error('Error recalculating payment:', error)
+    }
   }
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {

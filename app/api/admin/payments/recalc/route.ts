@@ -26,7 +26,22 @@ function getPeriodBounds(dateIso: string) {
 }
 
 export async function POST(req: Request) {
+  // Note: This endpoint is called by therapists when they schedule sessions
+  // We need to verify they're authenticated but don't require admin role
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const supabase = supabaseAdmin()
+
+  // Verify the user is authenticated
+  const token = authHeader.slice(7)
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+  if (authError || !user) {
+    return NextResponse.json({ error: "Invalid authentication" }, { status: 401 })
+  }
+
   try {
     const body = await req.json().catch(() => null) as { therapist_id?: string; session_date?: string }
     if (!body?.therapist_id || !body?.session_date) {
@@ -79,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     const totalSessions = allCount || 0
-    const commission = (outCount || 0) * ADMIN_COMMISSION_PER_SESSION
+    const commission = (allCount || 0) * ADMIN_COMMISSION_PER_SESSION
 
     if (existing?.id) {
       const { error: upErr } = await supabase
