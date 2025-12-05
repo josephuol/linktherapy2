@@ -204,6 +204,44 @@ export default function TherapistProfilePage() {
         setSaving(false)
         return
       }
+
+      // Check current therapist to see if we need to ensure proper initialization
+      const { data: currentTherapist } = await supabase
+        .from("therapists")
+        .select("status, ranking_points, total_sessions, full_name, title, bio_short, bio_long")
+        .eq("user_id", userId)
+        .maybeSingle()
+
+      // Determine if profile is complete enough
+      const hasRequiredFields =
+        form.full_name?.trim() &&
+        form.title?.trim() &&
+        form.bio_short?.trim() &&
+        form.bio_long?.trim() &&
+        form.age_range &&
+        selectedLocations.length > 0 &&
+        form.languages && form.languages.length > 0
+
+      // Check if this is first-time profile completion (was incomplete, now complete)
+      const wasIncomplete =
+        !currentTherapist?.full_name ||
+        !currentTherapist?.title ||
+        !currentTherapist?.bio_short ||
+        !currentTherapist?.bio_long
+
+      // Check if therapist should be activated:
+      // 1. No therapist record exists yet (not_onboarded state) OR
+      // 2. Therapist record exists but is incomplete AND has default ranking
+      const shouldActivate =
+        hasRequiredFields &&
+        (!currentTherapist || (wasIncomplete && currentTherapist.ranking_points === 0))
+
+      // Initialize ranking to 50 if they're completing profile for the first time with default (0) ranking
+      const needsRankingUpgrade =
+        hasRequiredFields &&
+        wasIncomplete &&
+        currentTherapist?.ranking_points === 0
+
       const updatePayload = {
         full_name: form.full_name || null,
         title: form.title || null,
@@ -218,12 +256,27 @@ export default function TherapistProfilePage() {
         languages: form.languages && form.languages.length > 0 ? form.languages : [],
         interests: form.interests && form.interests.length > 0 ? form.interests : [],
         updated_at: new Date().toISOString(),
+        // Activate therapist if completing profile from not_onboarded status
+        ...(shouldActivate && {
+          status: 'active',
+          ranking_points: 50,
+          total_sessions: 0
+        }),
+        // Upgrade ranking from 0 to 50 when completing profile for the first time (if not already set by activation)
+        ...(!shouldActivate && needsRankingUpgrade && {
+          ranking_points: 50
+        })
       }
 
+      // Use upsert to handle both new therapists (not_onboarded) and existing ones
       const { error: terrErr } = await supabase
         .from("therapists")
-        .update(updatePayload)
-        .eq("user_id", userId)
+        .upsert({
+          user_id: userId,
+          ...updatePayload
+        }, {
+          onConflict: 'user_id'
+        })
 
       if (terrErr) throw terrErr
 
@@ -270,7 +323,40 @@ export default function TherapistProfilePage() {
           .eq("user_id", userId)
       }
 
-      toast({ title: "Saved", description: "Your profile has been updated." })
+      // Log activation or completion
+      if (shouldActivate) {
+        await supabase.from("admin_audit_logs").insert({
+          action: "therapist.activated_via_profile",
+          target_user_id: userId,
+          details: {
+            completed_via: "dashboard_profile_save",
+            previous_status: currentTherapist?.status || 'not_onboarded',
+            new_status: 'active',
+            ranking_points: 50,
+            was_first_time_setup: !currentTherapist
+          }
+        })
+      } else if (needsRankingUpgrade) {
+        await supabase.from("admin_audit_logs").insert({
+          action: "therapist.profile_completed",
+          target_user_id: userId,
+          details: {
+            completed_via: "dashboard_profile_save",
+            ranking_upgraded: true,
+            from: 0,
+            to: 50
+          }
+        })
+      }
+
+      toast({
+        title: "Saved",
+        description: shouldActivate
+          ? "Your profile has been completed and activated! You've received 50 ranking points and are now visible to clients."
+          : needsRankingUpgrade
+          ? "Your profile has been completed! You've received 50 ranking points and are now visible to clients."
+          : "Your profile has been updated."
+      })
     } catch (err: any) {
       toast({ title: "Save failed", description: err.message || "Could not save profile", variant: "destructive" })
     } finally {

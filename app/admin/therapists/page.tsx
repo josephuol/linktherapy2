@@ -22,6 +22,7 @@ type Therapist = {
   status?: string | null;
   ranking_points?: number | null;
   total_sessions?: number | null;
+  bimonthly_commission?: number | null;
   last_active?: string | null;
 }
 
@@ -286,6 +287,7 @@ export default function AdminTherapistsPage() {
                         Sessions
                       </div>
                     </TableHead>
+                    <TableHead className="hidden md:table-cell whitespace-nowrap">Commission</TableHead>
                     <TableHead className="hidden xl:table-cell whitespace-nowrap">Last Active</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
                     <TableHead className="whitespace-nowrap">Actions</TableHead>
@@ -325,6 +327,9 @@ export default function AdminTherapistsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{t.total_sessions || 0}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <span className="font-semibold text-green-600">${t.bimonthly_commission || 0}</span>
+                      </TableCell>
                       <TableCell className="hidden xl:table-cell">
                         {t.last_active ? (
                           <div className="text-xs">

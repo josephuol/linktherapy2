@@ -42,15 +42,32 @@ export async function GET(req: Request) {
     .in("therapist_id", userIds)
     .order("session_date", { ascending: false })
 
+  // Fetch bimonthly commission for each therapist (last 2 months of payments)
+  const twoMonthsAgo = new Date()
+  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+  const { data: paymentsData } = await supabase
+    .from("therapist_payments")
+    .select("therapist_id, commission_amount, payment_period_start")
+    .in("therapist_id", userIds)
+    .gte("payment_period_start", twoMonthsAgo.toISOString().slice(0, 10))
+
   // Create maps for quick lookup
   const therapistMap = new Map(therapistsData?.map(t => [t.user_id, t]) || [])
   const lastActiveMap = new Map<string, string>()
+  const commissionMap = new Map<string, number>()
 
   if (sessionsData) {
     for (const session of sessionsData) {
       if (!lastActiveMap.has(session.therapist_id)) {
         lastActiveMap.set(session.therapist_id, session.session_date)
       }
+    }
+  }
+
+  if (paymentsData) {
+    for (const payment of paymentsData) {
+      const currentCommission = commissionMap.get(payment.therapist_id) || 0
+      commissionMap.set(payment.therapist_id, currentCommission + (Number(payment.commission_amount) || 0))
     }
   }
 
@@ -68,7 +85,8 @@ export async function GET(req: Request) {
       total_sessions: therapist?.total_sessions || 0,
       churn_rate_monthly: therapist?.churn_rate_monthly || 0,
       last_active: lastActiveMap.get(profile.user_id) || null,
-      has_completed_onboarding: !!therapist
+      has_completed_onboarding: !!therapist,
+      bimonthly_commission: commissionMap.get(profile.user_id) || 0
     }
   })
 
