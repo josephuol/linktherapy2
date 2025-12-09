@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
@@ -127,7 +128,7 @@ export default function TherapistProfilePage() {
 
   // Load available cities for selection (with fallback)
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const { data } = await supabase
           .from("site_content")
@@ -136,9 +137,9 @@ export default function TherapistProfilePage() {
           .maybeSingle()
         const cities = (data as any)?.content?.options?.locations?.cities
         if (Array.isArray(cities) && cities.length) setAvailableCities(cities)
-        else setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+        else setAvailableCities(["Beirut", "Zahle", "Jounieh/Kaslik", "Antelias", "Aley", "Tripoli", "Jbeil", "Dbayeh", "Ajaltoun"])
       } catch {
-        setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+        setAvailableCities(["Beirut", "Zahle", "Jounieh/Kaslik", "Antelias", "Aley", "Tripoli", "Jbeil", "Dbayeh", "Ajaltoun"])
       }
     })()
   }, [supabase])

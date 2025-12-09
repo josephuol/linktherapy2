@@ -154,19 +154,19 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
       const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
       const ok = typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function' && navigator.sendBeacon('/api/match-events', blob)
       if (!ok) {
-        fetch('/api/match-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {})
+        fetch('/api/match-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => { })
       }
-    } catch {}
+    } catch { }
     window.location.href = `/therapists?${params.toString()}`
   }
 
-  
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-lg w-[95vw] p-0 overflow-hidden">
         <DialogHeader className="px-4 sm:px-6 pt-5 sm:pt-6">
-          <DialogTitle className="text-xl sm:text-2xl text-[#056DBA]">Let's find your match</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl text-[#056DBA]">Let&apos;s find your match</DialogTitle>
           <div className="mt-3">
             <Progress value={pct} className="h-2" />
             <div className="mt-2 text-xs text-gray-500">Step {stepIndex + 1} of {steps.length}</div>
@@ -206,7 +206,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[2].label}</div>
               <div className="flex flex-wrap gap-2">
-                {(opt.genders || ["Male","Female","Don't care"]).map((g) => (
+                {(opt.genders || ["Male", "Female", "Don't care"]).map((g) => (
                   <Button key={g} variant={gender === g ? "default" : "secondary"} className={gender === g ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setGender(gender === g ? null : g)} size="sm">{g}</Button>
                 ))}
               </div>
@@ -217,7 +217,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[3].label}</div>
               <div className="flex flex-wrap gap-2">
-                {(opt.lgbtq || ["Yes","Don't care"]).map((l) => (
+                {(opt.lgbtq || ["Yes", "Don't care"]).map((l) => (
                   <Button key={l} variant={lgbtq === l ? "default" : "secondary"} className={lgbtq === l ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setLgbtq(lgbtq === l ? null : l)} size="sm">{l}</Button>
                 ))}
               </div>
@@ -228,7 +228,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[4].label}</div>
               <div className="flex flex-wrap gap-2">
-                {(opt.religions || ["Christian","Druze","Sunni","Shiite", "Other", "Don't care"]).map((r) => (
+                {(opt.religions || ["Christian", "Druze", "Sunni", "Shiite", "Other", "Don't care"]).map((r) => (
                   <Button key={r} variant={religion === r ? "default" : "secondary"} className={religion === r ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setReligion(religion === r ? null : r)} size="sm">{r}</Button>
                 ))}
               </div>
@@ -250,7 +250,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
             <div className="space-y-2">
               <div className="text-sm font-semibold text-gray-800">{steps[5].label}</div>
               <div className="flex flex-wrap gap-2">
-                {(opt.experienceBands || ["1-3","4-7","7-10","10+"]).map((e) => (
+                {(opt.experienceBands || ["1-3", "4-7", "7-10", "10+"]).map((e) => (
                   <Button key={e} variant={exp === e ? "default" : "secondary"} className={exp === e ? "bg-[#056DBA]" : "bg-gray-100 text-gray-800"} onClick={() => setExp(exp === e ? null : e)} size="sm">{e}</Button>
                 ))}
               </div>
@@ -282,7 +282,7 @@ export function MatchModal({ config, minPrice, maxPrice }: Props) {
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }
 

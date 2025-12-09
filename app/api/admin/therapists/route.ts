@@ -7,14 +7,31 @@ export async function GET(req: Request) {
   if (authCheck.error) return authCheck.error
 
   const supabase = supabaseAdmin()
+  const url = new URL(req.url)
 
-  // Fetch ALL profiles with role='therapist' to ensure we don't miss anyone
-  const { data: profilesData, error: profilesError, count: profilesCount } = await supabase
+  // Parse query parameters
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10))
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20", 10)))
+  const search = url.searchParams.get("search")?.trim().toLowerCase() || ""
+  const status = url.searchParams.get("status") || "all"
+  const sort = url.searchParams.get("sort") || "ranking" // ranking, sessions, name, date
+
+  // First, get total count for pagination metadata
+  let countQuery = supabase
     .from("profiles")
-    .select("user_id, email, full_name, created_at", { count: 'exact' })
+    .select("user_id", { count: 'exact', head: true })
+    .eq("role", "therapist")
+
+  const { count: totalCount } = await countQuery
+
+  // Fetch profiles with role='therapist'
+  let profilesQuery = supabase
+    .from("profiles")
+    .select("user_id, email, full_name, created_at")
     .eq("role", "therapist")
     .order("created_at", { ascending: false })
-    .limit(10000)
+
+  const { data: profilesData, error: profilesError } = await profilesQuery
 
   if (profilesError) {
     console.error("Error fetching profiles:", profilesError)
@@ -22,10 +39,11 @@ export async function GET(req: Request) {
   }
 
   if (!profilesData || profilesData.length === 0) {
-    return NextResponse.json({ therapists: [], count: 0 })
+    return NextResponse.json({
+      therapists: [],
+      meta: { total: 0, page, limit, totalPages: 0 }
+    })
   }
-
-  console.log(`[Admin API] Found ${profilesData.length} profiles with role='therapist'`)
 
   const userIds = profilesData.map(p => p.user_id)
 
@@ -55,7 +73,7 @@ export async function GET(req: Request) {
   }
 
   // Merge profiles with therapist data
-  const allTherapists = profilesData.map(profile => {
+  let allTherapists = profilesData.map(profile => {
     const therapist = therapistMap.get(profile.user_id)
 
     return {
@@ -68,22 +86,58 @@ export async function GET(req: Request) {
       total_sessions: therapist?.total_sessions || 0,
       churn_rate_monthly: therapist?.churn_rate_monthly || 0,
       last_active: lastActiveMap.get(profile.user_id) || null,
-      has_completed_onboarding: !!therapist
+      has_completed_onboarding: !!therapist,
+      created_at: profile.created_at
     }
   })
 
-  // Sort by ranking points (descending), then by created date
-  allTherapists.sort((a, b) => {
-    if (b.ranking_points !== a.ranking_points) {
-      return b.ranking_points - a.ranking_points
-    }
-    return 0
-  })
+  // Apply status filter
+  if (status !== "all") {
+    allTherapists = allTherapists.filter(t => t.status === status)
+  }
 
-  console.log(`[Admin API] Returning ${allTherapists.length} total therapists (${allTherapists.filter(t => !t.has_completed_onboarding).length} pending onboarding)`)
+  // Apply search filter
+  if (search) {
+    allTherapists = allTherapists.filter(t =>
+      t.full_name?.toLowerCase().includes(search) ||
+      t.email?.toLowerCase().includes(search) ||
+      t.title?.toLowerCase().includes(search)
+    )
+  }
+
+  // Sort based on parameter
+  switch (sort) {
+    case "sessions":
+      allTherapists.sort((a, b) => b.total_sessions - a.total_sessions)
+      break
+    case "name":
+      allTherapists.sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""))
+      break
+    case "date":
+      allTherapists.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      break
+    case "ranking":
+    default:
+      allTherapists.sort((a, b) => b.ranking_points - a.ranking_points)
+      break
+  }
+
+  // Calculate pagination
+  const filteredTotal = allTherapists.length
+  const totalPages = Math.ceil(filteredTotal / limit)
+  const offset = (page - 1) * limit
+  const paginatedTherapists = allTherapists.slice(offset, offset + limit)
+
+  console.log(`[Admin API] Returning ${paginatedTherapists.length} therapists (page ${page}/${totalPages}, filtered: ${filteredTotal}/${totalCount})`)
 
   return NextResponse.json({
-    therapists: allTherapists,
-    count: profilesCount || 0
+    therapists: paginatedTherapists,
+    meta: {
+      total: totalCount || 0,
+      filtered: filteredTotal,
+      page,
+      limit,
+      totalPages
+    }
   })
 }

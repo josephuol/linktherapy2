@@ -57,10 +57,10 @@ export function Footer() {
             </Link>
             <p className="text-blue-100 mb-6 leading-relaxed max-w-md">
               Connecting you with qualified mental health professionals to support your journey to wellness. Your mental
-              health matters, and we're here to help you find the right support.
+              health matters, and we&apos;re here to help you find the right support.
             </p>
             <div className="space-y-3 text-sm text-blue-100">
-              
+
               <div className="flex items-center gap-3 group hover:text-white transition-colors">
                 <div className="p-2 bg-white/10 rounded-full group-hover:bg-white/20 transition-colors">
                   <Phone className="h-4 w-4" />
@@ -166,7 +166,7 @@ export function Footer() {
                   rel="noopener noreferrer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-5 w-5" fill="currentColor">
-                    <path d="M39.6 17.2c-3.3 0-6.5-1.1-9-3.2v14.2c0 6.6-5.4 12-12 12S6.6 34.8 6.6 28.2c0-6.6 5.4-12 12-12 1 0 2 .1 3 .4v5.4c-.9-.4-1.9-.6-3-.6-3.7 0-6.6 3-6.6 6.6s3 6.6 6.6 6.6 6.6-3 6.6-6.6V4.2h5c.8 2.8 3.1 5.1 5.8 6v6.9z"/>
+                    <path d="M39.6 17.2c-3.3 0-6.5-1.1-9-3.2v14.2c0 6.6-5.4 12-12 12S6.6 34.8 6.6 28.2c0-6.6 5.4-12 12-12 1 0 2 .1 3 .4v5.4c-.9-.4-1.9-.6-3-.6-3.7 0-6.6 3-6.6 6.6s3 6.6 6.6 6.6 6.6-3 6.6-6.6V4.2h5c.8 2.8 3.1 5.1 5.8 6v6.9z" />
                   </svg>
                 </a>
               </div>

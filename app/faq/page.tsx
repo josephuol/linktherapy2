@@ -15,7 +15,7 @@ const faqData = [
       "Psychotherapy in Lebanon, also called talk therapy, is a way to work through and solve emotional challenges, mental health issues, and behavioral problems with a licensed therapist. Whether you're dealing with anxiety, depression, trauma or relationship stress, therapy offers you support, answers, and coping tools skills that will accompany you during every challenge.",
     answer: (
       <p>
-        Psychotherapy in Lebanon, also called talk therapy, is a way to work through and solve emotional challenges, mental health issues, and behavioral problems with a licensed therapist. Whether you're dealing with anxiety, depression, trauma or relationship stress, therapy offers you support, answers, and coping tools skills that will accompany you during every challenge.
+        Psychotherapy in Lebanon, also called talk therapy, is a way to work through and solve emotional challenges, mental health issues, and behavioral problems with a licensed therapist. Whether you&apos;re dealing with anxiety, depression, trauma or relationship stress, therapy offers you support, answers, and coping tools skills that will accompany you during every challenge.
       </p>
     ),
   },
@@ -56,6 +56,8 @@ const faqData = [
     answer: (
       <div className="space-y-3">
         <p>
+          A typical therapy session lasts 50 minutes (sometimes referred to as a &quot;therapeutic hour&quot;). However,
+          some therapists offer longer or shorter sessions depending on your needs and the type of therapy.
           Therapy session costs in Lebanon range from $30 to $150, depending on the therapist and type of service but we make sure to offer affordable therapy sessions ($30-$60) in Lebanon and outside Lebanon/online ($50-$80) through sliding scale options.
         </p>
         <p>
@@ -80,7 +82,7 @@ const faqData = [
       "If you're feeling overwhelmed, anxious, down, or stuck in your relationships, it may be time. In other cases, you may not be feeling stuck but rather in a fog, in need of more clarity or stability. Therapy in Lebanon and abroad isn’t only for crises but also for growth and learning to balance your emotions.",
     answer: (
       <p>
-        If you're feeling overwhelmed, anxious, down, or stuck in your relationships, it may be time. In other cases, you may not be feeling stuck but rather in a fog, in need of more clarity or stability. Therapy in Lebanon and abroad isn’t only for crises but also for growth and learning to balance your emotions.
+        If you&apos;re feeling overwhelmed, anxious, down, or stuck in your relationships, it may be time. In other cases, you may not be feeling stuck but rather in a fog, in need of more clarity or stability. Therapy in Lebanon and abroad isn’t only for crises but also for growth and learning to balance your emotions.
       </p>
     ),
   },
@@ -101,10 +103,11 @@ const faqData = [
     answer: (
       <div className="space-y-3">
         <p>
-          It depends. On average, many people benefit from 6 to 12 sessions but often, they choose to stay longer depending on how much they are willing to grow and heal from. You can tailor a plan with your therapist to fit your specific goals.
-        </p>
-        <p>
-          Overall, if you prefer faster, short term solutions, you may choose CBT. If you prefer long-term solutions, you may go for an analytical approach. We always make sure to choose the most skilled therapists so that you spend a minimum of time in therapy and save a maximum of time living your best life.
+          It depends. On average, many people benefit from 6 to 12 sessions but often, they choose to stay longer depending on how much they are willing to grow
+          If you don&apos;t feel a connection with your therapist after a few sessions, it&apos;s completely okay to switch.
+          Therapy is most effective when you have a good relationship with your therapist. We can help you match
+          with someone else who might be a better fit.
+          You can tailor a plan with your therapist to fit your specific goals. Overall, if you prefer faster, short term solutions, you may choose CBT. If you prefer long-term solutions, you may go for an analytical approach. We always make sure to choose the most skilled therapists so that you spend a minimum of time in therapy and save a maximum of time living your best life.
         </p>
       </div>
     ),
@@ -184,7 +187,7 @@ const faqData = [
       "That’s totally normal. The first session is just a conversation. Your therapist will ask about your goals and concerns and also get to know you, just as you will also get to know them. The first one to two sessions are usually made for the therapist to know more about you they can start helping you efficiently. Whether online or at one of our therapy clinics in Beirut, Zahle, Tripoli, Jbeil, Jounieh or Dbayeh, we’ll make sure you feel heard and at ease. You can always contact us regarding any inquiry.",
     answer: (
       <p>
-        That’s totally normal. The first session is just a conversation. Your therapist will ask about your goals and concerns and also get to know you, just as you will also get to know them. The first one to two sessions are usually made for the therapist to know more about you they can start helping you efficiently. Whether online or at one of our therapy clinics in Beirut, Zahle, Tripoli, Jbeil, Jounieh or Dbayeh, we’ll make sure you feel heard and at ease. You can always contact us regarding any inquiry.
+        That&apos;s totally normal. The first session is just a conversation. Your therapist will ask about your goals and concerns and also get to know you, just as you will also get to know them. The first one to two sessions are usually made for the therapist to know more about you they can start helping you efficiently. Whether online or at one of our therapy clinics in Beirut, Zahle, Tripoli, Jbeil, Jounieh or Dbayeh, we’ll make sure you feel heard and at ease. You can always contact us regarding any inquiry.
       </p>
     ),
   },

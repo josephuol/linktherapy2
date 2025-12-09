@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import type React from "react"
@@ -274,7 +275,7 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                 />
               </div>
 
-                <div className="p-6 bg-blue-50/80 rounded-2xl border border-blue-200/50">
+              <div className="p-6 bg-blue-50/80 rounded-2xl border border-blue-200/50">
                 <div className="flex items-start space-x-3">
                   <Checkbox
                     id="consent"
@@ -283,7 +284,7 @@ export function ContactModal({ therapist, isOpen, onClose }: ContactModalProps) 
                     className="mt-1"
                   />
                   <label htmlFor="consent" className="text-sm text-gray-700 leading-relaxed flex-1">
-                      <Shield className="inline h-4 w-4 mr-1 text-[#056DBA]" />I consent to sharing my information with
+                    <Shield className="inline h-4 w-4 mr-1 text-[#056DBA]" />I consent to sharing my information with
                     LinkTherapy to book with my therapist and be asked for feedback on the service. Your privacy is
                     protected and information is only shared with your chosen therapist. *
                   </label>

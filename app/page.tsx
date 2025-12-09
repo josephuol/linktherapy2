@@ -8,7 +8,7 @@ export default function HomePage() {
       <AuthHashRedirect />
       {/* Server-side prefetch for faster first paint */}
       {/* eslint-disable-next-line @next/next/no-async-client-component */}
-      <TherapistDirectoryLoader showFilters={false} limit={4} />
+      <TherapistDirectoryLoader showFilters={false} />
       <WhatsAppButton />
     </div>
   )

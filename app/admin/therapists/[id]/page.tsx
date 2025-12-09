@@ -344,22 +344,124 @@ export default function AdminTherapistDetailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 py-10">
       <div className="container mx-auto px-4 max-w-7xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl md:text-4xl font-bold text-[#056DBA]">{therapist?.full_name || "Therapist"}</h1>
-          <Button variant="outline" onClick={() => router.push("/admin/therapists")}>Back</Button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-[#056DBA]">{therapist?.full_name || "Therapist"}</h1>
+            <p className="text-gray-500 mt-1">{profile?.email}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.push("/admin")}>Back to Dashboard</Button>
+          </div>
         </div>
+
+        {/* Status Management Card - Prominent for pending therapists */}
+        {therapist && (
+          <Card className={`border-2 ${
+            therapist.status === 'pending' || therapist.status === 'not_onboarded'
+              ? 'border-yellow-300 bg-yellow-50/50'
+              : therapist.status === 'suspended'
+                ? 'border-red-300 bg-red-50/50'
+                : therapist.status === 'warning'
+                  ? 'border-orange-300 bg-orange-50/50'
+                  : 'border-green-300 bg-green-50/50'
+          }`}>
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    therapist.status === 'active' ? 'bg-green-500' :
+                    therapist.status === 'pending' || therapist.status === 'not_onboarded' ? 'bg-yellow-500' :
+                    therapist.status === 'warning' ? 'bg-orange-500' : 'bg-red-500'
+                  }`} />
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      Status: <span className="capitalize">{therapist.status || 'Unknown'}</span>
+                    </div>
+                    {(therapist.status === 'pending' || therapist.status === 'not_onboarded') && (
+                      <p className="text-sm text-yellow-700">This therapist has not completed onboarding yet.</p>
+                    )}
+                    {therapist.status === 'suspended' && (
+                      <p className="text-sm text-red-700">This therapist is currently suspended.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {therapist.status !== 'active' && (
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={async () => {
+                        await supabase.from("therapists").update({ status: 'active' }).eq("user_id", therapistId)
+                        setTherapist((prev: any) => prev ? { ...prev, status: 'active' } : prev)
+                      }}
+                    >
+                      Approve & Activate
+                    </Button>
+                  )}
+                  {therapist.status !== 'warning' && therapist.status !== 'suspended' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                      onClick={async () => {
+                        await supabase.from("therapists").update({ status: 'warning' }).eq("user_id", therapistId)
+                        setTherapist((prev: any) => prev ? { ...prev, status: 'warning' } : prev)
+                      }}
+                    >
+                      Issue Warning
+                    </Button>
+                  )}
+                  {therapist.status !== 'suspended' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={async () => {
+                        await supabase.from("therapists").update({ status: 'suspended' }).eq("user_id", therapistId)
+                        setTherapist((prev: any) => prev ? { ...prev, status: 'suspended' } : prev)
+                      }}
+                    >
+                      Suspend
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           <Card>
-            <CardHeader><div className="text-lg font-semibold text-gray-900">Profile</div></CardHeader>
+            <CardHeader><div className="text-lg font-semibold text-gray-900">Profile Details</div></CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-gray-600">Name</span><span className="font-medium">{therapist?.full_name || profile?.full_name || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Email</span><span className="font-medium">{profile?.email || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Title</span><span className="font-medium">{therapist?.title || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Status</span><span className="font-medium">{therapist?.status || '—'}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Ranking Points</span><span className="font-medium">{therapist?.ranking_points ?? 0}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Total Sessions</span><span className="font-medium">{therapist?.total_sessions ?? 0}</span></div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Name</span>
+                  <span className="font-medium text-gray-900">{therapist?.full_name || profile?.full_name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Email</span>
+                  <span className="font-medium text-gray-900">{profile?.email || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Title</span>
+                  <span className="font-medium text-gray-900">{therapist?.title || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Session Price</span>
+                  <span className="font-medium text-gray-900">${therapist?.session_price_45_min || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Experience</span>
+                  <span className="font-medium text-gray-900">{therapist?.years_of_experience || 0} years</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500">Ranking Points</span>
+                  <span className="font-medium text-[#056DBA]">{therapist?.ranking_points ?? 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-500">Total Sessions</span>
+                  <span className="font-medium text-gray-900">{therapist?.total_sessions ?? 0}</span>
+                </div>
               </div>
             </CardContent>
           </Card>

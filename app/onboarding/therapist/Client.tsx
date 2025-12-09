@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
@@ -84,10 +85,11 @@ export default function TherapistOnboardingClient() {
 
     hydrate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const { data } = await supabase
           .from("site_content")
@@ -96,9 +98,9 @@ export default function TherapistOnboardingClient() {
           .maybeSingle()
         const cities = (data as any)?.content?.options?.locations?.cities
         if (Array.isArray(cities) && cities.length) setAvailableCities(cities)
-        else setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+        else setAvailableCities(["Beirut", "Zahle", "Jounieh/Kaslik", "Antelias", "Aley", "Tripoli", "Jbeil", "Dbayeh", "Ajaltoun"])
       } catch {
-        setAvailableCities(["Beirut","Zahle","Jounieh/Kaslik","Antelias","Aley","Tripoli","Jbeil","Dbayeh","Ajaltoun"])
+        setAvailableCities(["Beirut", "Zahle", "Jounieh/Kaslik", "Antelias", "Aley", "Tripoli", "Jbeil", "Dbayeh", "Ajaltoun"])
       }
     })()
   }, [supabase])
@@ -297,6 +299,7 @@ export default function TherapistOnboardingClient() {
     } finally {
       setSavingProfile(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullName, title, bioShort, bioLong, religion, ageRange, yearsOfExperience, languages, price45, profileImageFile, acceptTos, supabase, router, gender, lgbtqFriendly, selectedLocations, interests, toast])
 
   if (hydrating) {
@@ -606,11 +609,10 @@ export default function TherapistOnboardingClient() {
                   {availableCities.map((city) => (
                     <label
                       key={city}
-                      className={`flex items-center gap-2 text-sm p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        selectedLocations.includes(city)
-                          ? 'border-[#056DBA] bg-[#056DBA]/5'
-                          : 'border-gray-200 hover:border-[#056DBA]/30'
-                      } ${!selectedLocations.includes(city) && selectedLocations.length >= 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`flex items-center gap-2 text-sm p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedLocations.includes(city)
+                        ? 'border-[#056DBA] bg-[#056DBA]/5'
+                        : 'border-gray-200 hover:border-[#056DBA]/30'
+                        } ${!selectedLocations.includes(city) && selectedLocations.length >= 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <input
                         type="checkbox"

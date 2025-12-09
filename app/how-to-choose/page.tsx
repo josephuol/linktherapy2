@@ -11,7 +11,7 @@ export default function HowToChoosePage() {
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">How to Choose the Right Therapist</h1>
           <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-            A comprehensive guide to finding the mental health professional that's perfect for you
+            A comprehensive guide to finding the mental health professional that&apos;s perfect for you
           </p>
         </div>
       </section>
@@ -24,10 +24,10 @@ export default function HowToChoosePage() {
             <div>
               <Card>
                 <CardContent className="p-6">
-                  <p className="text-gray-700 mb-4">
-                    This section is being written. Contact us if you need help to choose a therapist.
+                  <p className="text-gray-600 mb-6">
+                    Finding the right therapist is a personal journey. It&apos;s not just about qualifications – it&apos;s about finding someone you feel comfortable with, who understands your specific needs, and whose approach resonates with you.
                   </p>
-                  
+
                 </CardContent>
               </Card>
             </div>
@@ -36,7 +36,7 @@ export default function HowToChoosePage() {
             <div className="bg-[#056DBA] rounded-lg p-8 text-white text-center">
               <h3 className="text-2xl font-bold mb-4">Need Help Finding the Right Therapist?</h3>
               <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-                Our team is here to help you navigate your options and find a therapist who's the perfect fit for your
+                Our team is here to help you navigate your options and find a therapist who&apos;s the perfect fit for your
                 needs.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

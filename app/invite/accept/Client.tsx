@@ -145,7 +145,7 @@ export default function AcceptInviteClient() {
       setError(e?.message || "An unexpected error occurred")
       setAccepting(false)
     }
-  }, [token, password, password2, supabase, router])
+  }, [token, password, password2, supabase, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Loading state
   if (validating) {
@@ -173,8 +173,8 @@ export default function AcceptInviteClient() {
           </CardHeader>
           <CardContent>
             <p className="text-gray-700 mb-4">{inviteError || "This invitation link is invalid or has expired."}</p>
-            <p className="text-sm text-gray-600">
-              Please contact your administrator to request a new invitation.
+            <p className="text-center text-sm text-gray-600">
+              You&apos;ll be asked to create an account to access the platform.
             </p>
             <Button
               variant="outline"
@@ -196,7 +196,7 @@ export default function AcceptInviteClient() {
         <CardHeader>
           <CardTitle>Welcome to LinkTherapy!</CardTitle>
           <CardDescription>
-            You've been invited to join as a therapist. Set your password to get started.
+            You&apos;ve been invited to join as a therapist. Set your password to get started.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

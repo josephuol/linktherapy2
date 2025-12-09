@@ -75,40 +75,40 @@ export default function AdminRequestsPage() {
           <CardContent>
             <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white -mx-4 sm:mx-0 px-4 sm:px-0">
               <div className="min-w-[900px]">
-              <Table className="text-xs sm:text-sm">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Client</TableHead>
-                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Contact</TableHead>
-                    <TableHead className="hidden md:table-cell whitespace-nowrap">Message</TableHead>
-                    <TableHead className="whitespace-nowrap">Status</TableHead>
-                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Assigned</TableHead>
-                    <TableHead className="whitespace-nowrap">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{r.client_name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <div>{r.client_email}</div>
-                        <div className="text-gray-500 text-xs">{r.client_phone || "—"}</div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell max-w-[320px] truncate">{r.message || "—"}</TableCell>
-                      <TableCell className="whitespace-nowrap"><span className="px-2 py-1 rounded-md text-xs bg-blue-50 text-[#056DBA] border border-blue-100">{r.status}</span></TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {r.assigned_therapist_id ? therapists.find(t => t.user_id === r.assigned_therapist_id)?.full_name || "—" : "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <select className="border rounded-md h-9 px-2" defaultValue={r.assigned_therapist_id || ""} onChange={(e) => assign(r.id, e.target.value)}>
-                          <option value="">Assign…</option>
-                          {therapists.map(t => <option key={t.user_id} value={t.user_id}>{t.full_name}</option>)}
-                        </select>
-                      </TableCell>
+                <Table className="text-xs sm:text-sm">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Client</TableHead>
+                      <TableHead className="hidden sm:table-cell whitespace-nowrap">Contact</TableHead>
+                      <TableHead className="hidden md:table-cell whitespace-nowrap">Message</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="hidden sm:table-cell whitespace-nowrap">Assigned</TableHead>
+                      <TableHead className="whitespace-nowrap">Action</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium whitespace-nowrap">{r.client_name}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div>{r.client_email}</div>
+                          <div className="text-gray-500 text-xs">{r.client_phone || "—"}</div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[320px] truncate">{r.message || "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap"><span className="px-2 py-1 rounded-md text-xs bg-blue-50 text-[#056DBA] border border-blue-100">{r.status}</span></TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {r.assigned_therapist_id ? therapists.find(t => t.user_id === r.assigned_therapist_id)?.full_name || "—" : "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <select className="border rounded-md h-9 px-2" defaultValue={r.assigned_therapist_id || ""} onChange={(e) => assign(r.id, e.target.value)}>
+                            <option value="">Assign…</option>
+                            {therapists.map(t => <option key={t.user_id} value={t.user_id}>{t.full_name}</option>)}
+                          </select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </CardContent>
