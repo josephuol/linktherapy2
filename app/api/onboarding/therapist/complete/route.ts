@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       profile_image_url,
       gender,
       lgbtq_friendly: typeof lgbtq_friendly === "boolean" ? lgbtq_friendly : undefined,
-      status: 'active',
+      status: 'suspended',
       ranking_points: 50, // Set default ranking points
       total_sessions: 0, // Initialize sessions count
     }, {

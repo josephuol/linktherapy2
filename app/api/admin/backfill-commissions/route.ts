@@ -17,6 +17,19 @@ export async function POST(req: Request) {
       .select("id, therapist_id, payment_period_start, payment_period_end, status, last_paid_action_at")
     if (paymentsErr) return NextResponse.json({ error: paymentsErr.message }, { status: 400 })
 
+    // Fetch all therapists with custom commission rates
+    const therapistIds = [...new Set((payments || []).map(p => p.therapist_id))]
+    const { data: therapists } = await supabase
+      .from("therapists")
+      .select("user_id, custom_commission_rate")
+      .in("user_id", therapistIds)
+
+    // Create a map for quick lookup
+    const commissionRateMap = new Map<string, number | null>()
+    for (const t of therapists || []) {
+      commissionRateMap.set(t.user_id, t.custom_commission_rate)
+    }
+
     let updated = 0
 
     for (const p of payments || []) {
@@ -51,7 +64,9 @@ export async function POST(req: Request) {
       if (countOutErr) return NextResponse.json({ error: countOutErr.message }, { status: 400 })
 
       const totalSessions = allCount || 0
-      const commission = (allCount || 0) * ADMIN_COMMISSION_PER_SESSION
+      // Use custom commission rate if set, otherwise use default
+      const effectiveRate = commissionRateMap.get(p.therapist_id) ?? ADMIN_COMMISSION_PER_SESSION
+      const commission = (allCount || 0) * effectiveRate
 
       const { error: upErr } = await supabase
         .from("therapist_payments")

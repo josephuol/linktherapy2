@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       .from("therapist_payments")
       .select(`
         *,
-        therapists!inner(full_name)
+        therapists!inner(full_name, custom_commission_rate)
       `)
       .gte("payment_period_start", monthStart.toISOString().split('T')[0])
       .lte("payment_period_start", monthEnd.toISOString().split('T')[0])
@@ -45,7 +45,8 @@ export async function GET(req: Request) {
 
     const formattedData = data?.map((p: any) => ({
       ...p,
-      therapist_name: p.therapists?.full_name
+      therapist_name: p.therapists?.full_name,
+      custom_commission_rate: p.therapists?.custom_commission_rate
     })) || []
 
     // Calculate commissions dynamically for each payment if commission_amount is 0 or missing
@@ -71,7 +72,9 @@ export async function GET(req: Request) {
 
           if (!countError && count !== null) {
             totalSessions = count
-            commission = count * ADMIN_COMMISSION_PER_SESSION
+            // Use custom commission rate if set, otherwise use default
+            const effectiveRate = payment.custom_commission_rate ?? ADMIN_COMMISSION_PER_SESSION
+            commission = count * effectiveRate
 
             // Update the payment record with calculated values
             await supabase

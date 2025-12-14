@@ -53,6 +53,21 @@ export async function POST(req: Request) {
     const periodStartStr = start.toISOString().split('T')[0]
     const periodEndStr = end.toISOString().split('T')[0]
 
+    // Fetch therapist's custom commission rate
+    const { data: therapistData, error: therapistErr } = await supabase
+      .from("therapists")
+      .select("custom_commission_rate")
+      .eq("user_id", body.therapist_id)
+      .single()
+
+    if (therapistErr && therapistErr.code !== 'PGRST116') {
+      // PGRST116 = no rows found, which is okay for new therapists
+      console.error("[Payment Recalc] Error fetching therapist:", therapistErr)
+    }
+
+    // Use custom commission rate if set, otherwise use default
+    const effectiveCommissionRate = therapistData?.custom_commission_rate ?? ADMIN_COMMISSION_PER_SESSION
+
     // Locate current period payment and consider last payout time for outstanding
     const { data: existing, error: existingErr } = await supabase
       .from("therapist_payments")
@@ -94,7 +109,7 @@ export async function POST(req: Request) {
     }
 
     const totalSessions = allCount || 0
-    const commission = (allCount || 0) * ADMIN_COMMISSION_PER_SESSION
+    const commission = (allCount || 0) * effectiveCommissionRate
 
     if (existing?.id) {
       const { error: upErr } = await supabase

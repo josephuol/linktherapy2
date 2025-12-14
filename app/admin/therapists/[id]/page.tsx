@@ -44,18 +44,21 @@ export default function AdminTherapistDetailPage() {
     return { start, end, endExclusive }
   }
 
-  const computeLiveCommission = async () => {
+  const computeLiveCommission = async (customRate?: number | null) => {
     if (!therapistId) return
     const { start, endExclusive } = getCurrentPeriodBounds()
     const { count } = await (supabase
       .from("sessions")
       .select("id", { count: "exact", head: true })
       .eq("therapist_id", therapistId)
-      .in("status", ["scheduled", "completed"]) 
+      .in("status", ["scheduled", "completed"])
       .gte("session_date", start.toISOString())
       .lt("session_date", endExclusive.toISOString()) as any)
     const total = count || 0
-    setLiveCommission(total * ADMIN_COMMISSION_PER_SESSION)
+    // Use custom commission rate if set, otherwise use default
+    // Check parameter first, then state, then default
+    const effectiveRate = customRate ?? therapist?.custom_commission_rate ?? ADMIN_COMMISSION_PER_SESSION
+    setLiveCommission(total * effectiveRate)
   }
 
   const currentPeriodForDisplay = () => {
@@ -224,7 +227,7 @@ export default function AdminTherapistDetailPage() {
       })
       const withFlag = (futureSessions || []).map((s: any) => ({ ...s, isTooClose: tooCloseIds.has(s.id) }))
       setUpcomingSessions(withFlag)
-      await computeLiveCommission()
+      await computeLiveCommission(t?.custom_commission_rate)
       setLoading(false)
 
       // Live updates: refresh payments/commission when therapist_payments changes

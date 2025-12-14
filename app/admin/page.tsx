@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { cn, ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
 import { ArrowRightIcon, DollarLineIcon, CalenderIcon, PieChartIcon, GroupIcon } from "@/components/icons/index"
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown, Users, UserCheck, AlertTriangle, UserX } from "lucide-react"
@@ -100,6 +102,12 @@ function AdminDashboardContent() {
   const [meta, setMeta] = useState<{ total: number; filtered: number; page: number; limit: number; totalPages: number } | null>(null)
   const [searchInput, setSearchInput] = useState(currentSearch)
 
+  // Commission modal state
+  const [commissionModalOpen, setCommissionModalOpen] = useState(false)
+  const [commissionTherapist, setCommissionTherapist] = useState<any | null>(null)
+  const [customCommission, setCustomCommission] = useState("")
+  const [isActivating, setIsActivating] = useState(false)
+
   // Update URL params
   const updateParams = useCallback((updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -186,6 +194,55 @@ function AdminDashboardContent() {
       fetchTherapists()
     }
   }, [currentPage, currentStatus, currentSort, currentSearch, fetchTherapists, loading])
+
+  // Handle activation - check if therapist needs custom commission
+  const handleActivate = (therapist: any) => {
+    const price = therapist.session_price_45_min || 0
+    if (price > 60) {
+      // High-priced therapist - show commission modal
+      setCommissionTherapist(therapist)
+      setCustomCommission(therapist.custom_commission_rate?.toString() || "")
+      setCommissionModalOpen(true)
+    } else {
+      // Regular therapist - activate directly
+      updateStatus(therapist.user_id, 'active')
+    }
+  }
+
+  // Confirm activation with custom commission
+  const confirmActivateWithCommission = async () => {
+    if (!commissionTherapist) return
+
+    const commissionValue = parseFloat(customCommission)
+    if (isNaN(commissionValue) || commissionValue < 0) {
+      alert("Please enter a valid commission amount")
+      return
+    }
+
+    setIsActivating(true)
+    try {
+      await supabase
+        .from("therapists")
+        .update({
+          status: 'active',
+          custom_commission_rate: commissionValue
+        })
+        .eq("user_id", commissionTherapist.user_id)
+
+      setTherapists((prev) =>
+        prev.map((t) =>
+          t.user_id === commissionTherapist.user_id
+            ? { ...t, status: 'active', custom_commission_rate: commissionValue }
+            : t
+        )
+      )
+      setCommissionModalOpen(false)
+      setCommissionTherapist(null)
+      setCustomCommission("")
+    } finally {
+      setIsActivating(false)
+    }
+  }
 
   const updateStatus = async (user_id: string, status: 'active' | 'warning' | 'suspended') => {
     await supabase.from("therapists").update({ status }).eq("user_id", user_id)
@@ -355,7 +412,7 @@ function AdminDashboardContent() {
                               size="sm"
                               variant="ghost"
                               className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => updateStatus(t.user_id, 'active')}
+                              onClick={() => handleActivate(t)}
                             >
                               Activate
                             </Button>
@@ -417,6 +474,66 @@ function AdminDashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Custom Commission Modal */}
+      <Dialog open={commissionModalOpen} onOpenChange={setCommissionModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Custom Commission</DialogTitle>
+            <DialogDescription>
+              This therapist charges ${commissionTherapist?.session_price_45_min || 0} per session (above $60).
+              Please specify a custom commission rate per session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Therapist:</strong> {commissionTherapist?.full_name}
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  <strong>Session Price:</strong> ${commissionTherapist?.session_price_45_min || 0}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="commission">Commission per Session ($)</Label>
+                <Input
+                  id="commission"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={`Default: $${ADMIN_COMMISSION_PER_SESSION}`}
+                  value={customCommission}
+                  onChange={(e) => setCustomCommission(e.target.value)}
+                />
+                <p className="text-xs text-gray-500">
+                  Default commission is ${ADMIN_COMMISSION_PER_SESSION} per session.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCommissionModalOpen(false)
+                setCommissionTherapist(null)
+                setCustomCommission("")
+              }}
+              disabled={isActivating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmActivateWithCommission}
+              disabled={isActivating || !customCommission}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isActivating ? "Activating..." : "Activate with Commission"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

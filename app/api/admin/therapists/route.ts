@@ -50,7 +50,7 @@ export async function GET(req: Request) {
   // Fetch therapist details for those who have completed onboarding
   const { data: therapistsData } = await supabase
     .from("therapists")
-    .select("user_id, full_name, title, status, ranking_points, total_sessions, churn_rate_monthly")
+    .select("user_id, full_name, title, status, ranking_points, total_sessions, churn_rate_monthly, session_price_45_min, custom_commission_rate")
     .in("user_id", userIds)
 
   // Fetch last active time for each therapist (most recent session)
@@ -87,7 +87,9 @@ export async function GET(req: Request) {
       churn_rate_monthly: therapist?.churn_rate_monthly || 0,
       last_active: lastActiveMap.get(profile.user_id) || null,
       has_completed_onboarding: !!therapist,
-      created_at: profile.created_at
+      created_at: profile.created_at,
+      session_price_45_min: therapist?.session_price_45_min || null,
+      custom_commission_rate: therapist?.custom_commission_rate || null
     }
   })
 
