@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Minus, Trophy, Activity, RefreshCw, Mail, Trash2, AlertTriangle } from "lucide-react"
+import { Plus, Minus, Trophy, Activity, RefreshCw, Mail, Trash2, AlertTriangle, MoreVertical, DollarSign, Globe } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 type Therapist = {
   user_id: string;
@@ -23,6 +24,8 @@ type Therapist = {
   ranking_points?: number | null;
   total_sessions?: number | null;
   last_active?: string | null;
+  commission_per_session?: number | null;
+  remote_available?: boolean;
 }
 
 type PendingInvite = {
@@ -52,6 +55,10 @@ export default function AdminTherapistsPage() {
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [therapistToDelete, setTherapistToDelete] = useState<Therapist | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [commissionDialog, setCommissionDialog] = useState(false)
+  const [commissionTherapist, setCommissionTherapist] = useState<Therapist | null>(null)
+  const [commissionRate, setCommissionRate] = useState("")
+  const [updatingCommission, setUpdatingCommission] = useState(false)
 
   const loadTherapists = async () => {
     // Fetch therapists via admin API to bypass RLS
@@ -244,6 +251,79 @@ export default function AdminTherapistsPage() {
     }
   }
 
+  const openCommissionDialog = (therapist: Therapist) => {
+    setCommissionTherapist(therapist)
+    setCommissionRate(therapist.commission_per_session?.toString() || "")
+    setCommissionDialog(true)
+  }
+
+  const handleUpdateCommission = async () => {
+    if (!commissionTherapist) return
+
+    setUpdatingCommission(true)
+    try {
+      const commissionValue = commissionRate.trim() === "" ? null : parseFloat(commissionRate)
+      if (commissionRate.trim() !== "" && (isNaN(commissionValue as number) || (commissionValue as number) < 0)) {
+        throw new Error("Invalid commission value. Must be a positive number or empty.")
+      }
+
+      const res = await fetch("/api/admin/therapists/commission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          therapist_id: commissionTherapist.user_id,
+          commission_per_session: commissionValue
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update commission rate")
+      }
+
+      toast.success(commissionValue === null
+        ? `Commission reset to default ($6) for ${commissionTherapist.full_name}`
+        : `Commission rate set to $${commissionValue} for ${commissionTherapist.full_name}`)
+      setCommissionDialog(false)
+      setCommissionRate("")
+      setCommissionTherapist(null)
+      await loadTherapists()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to update commission rate")
+    } finally {
+      setUpdatingCommission(false)
+    }
+  }
+
+  const toggleOnlineStatus = async (therapist: Therapist) => {
+    try {
+      const newStatus = !therapist.remote_available
+
+      const res = await fetch("/api/admin/therapists/toggle-online", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          therapist_id: therapist.user_id,
+          remote_available: newStatus
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to toggle online status")
+      }
+
+      toast.success(`${therapist.full_name} ${newStatus ? "now" : "no longer"} offers online sessions`)
+      await loadTherapists()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || "Failed to toggle online status")
+    }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
 
   return (
@@ -303,12 +383,20 @@ export default function AdminTherapistsPage() {
                         )}
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
-                        <button
-                          className="text-[#056DBA] hover:underline"
-                          onClick={() => router.push(`/admin/therapists/${t.user_id}`)}
-                        >
-                          {t.full_name || "—"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="text-[#056DBA] hover:underline"
+                            onClick={() => router.push(`/admin/therapists/${t.user_id}`)}
+                          >
+                            {t.full_name || "—"}
+                          </button>
+                          {t.remote_available && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                              <Globe className="h-3 w-3 mr-1" />
+                              Online
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <span className="text-xs text-gray-600">{t.email || "—"}</span>
@@ -346,26 +434,47 @@ export default function AdminTherapistsPage() {
                           {t.status || "—"}
                         </span>
                       </TableCell>
-                      <TableCell className="space-x-2 whitespace-nowrap">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openAdjustDialog(t)}
-                          className="border-[#056DBA] text-[#056DBA] hover:bg-[#056DBA] hover:text-white"
-                        >
-                          Adjust Points
-                        </Button>
-                        <Button size="sm" className="bg-[#056DBA] hover:bg-[#045A99]" onClick={() => updateStatus(t.user_id, 'active')}>Activate</Button>
-                        <Button size="sm" variant="outline" onClick={() => updateStatus(t.user_id, 'warning')}>Warn</Button>
-                        <Button size="sm" variant="destructive" onClick={() => updateStatus(t.user_id, 'suspended')}>Suspend</Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => openDeleteDialog(t)}
-                          className="bg-red-700 hover:bg-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                              Actions
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={() => openAdjustDialog(t)}>
+                              <Trophy className="h-4 w-4 mr-2" />
+                              Adjust Points
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openCommissionDialog(t)}>
+                              <DollarSign className="h-4 w-4 mr-2" />
+                              Set Commission Rate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => toggleOnlineStatus(t)}>
+                              <Globe className="h-4 w-4 mr-2" />
+                              {t.remote_available ? "Disable" : "Enable"} Online Sessions
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => updateStatus(t.user_id, 'active')}>
+                              Activate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateStatus(t.user_id, 'warning')}>
+                              Warn
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => updateStatus(t.user_id, 'suspended')}>
+                              Suspend
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => openDeleteDialog(t)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Account
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -576,6 +685,74 @@ export default function AdminTherapistsPage() {
                   <>
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Permanently
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Commission Rate Dialog */}
+      <Dialog open={commissionDialog} onOpenChange={setCommissionDialog}>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Set Commission Rate</DialogTitle>
+            <DialogDescription>
+              Set a custom commission rate per session for {commissionTherapist?.full_name}. Leave empty to use the default rate ($6).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <Label htmlFor="commission">Commission Per Session ($)</Label>
+              <Input
+                id="commission"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="6 (default)"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+                className="mt-2"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Current: {commissionTherapist?.commission_per_session !== null && commissionTherapist?.commission_per_session !== undefined
+                  ? `$${commissionTherapist.commission_per_session}`
+                  : "$6 (default)"}
+              </p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <DollarSign className="h-4 w-4 inline mr-1" />
+                This rate will be used for all future payment calculations for this therapist. Leave empty to reset to the default global rate.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCommissionDialog(false)
+                  setCommissionRate("")
+                  setCommissionTherapist(null)
+                }}
+                disabled={updatingCommission}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-[#056DBA] hover:bg-[#045A99]"
+                onClick={handleUpdateCommission}
+                disabled={updatingCommission}
+              >
+                {updatingCommission ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    {commissionRate.trim() === "" ? "Reset to Default" : "Update Commission"}
                   </>
                 )}
               </Button>

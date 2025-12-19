@@ -24,7 +24,23 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.tsPAYMENT_NOTIFICATIONS.md
+next-env.d.ts
+
+# supabase temp files
+supabase/.temp/
+
+# test files and scripts
+test-*.js
+test-*.ts
+test-*.mjs
+test-*.sh
+**/test-*.js
+**/test-*.ts
+**/test-*.mjs
+
+# temporary documentation
+MANUAL_DB_FIX.md
+APPLY_MIGRATION.md
 TEST_RESULTS.md
 QUICK_START.md
 TESTING_GUIDE.md

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 
 type Therapist = {
   user_id: string
@@ -24,6 +25,7 @@ type Therapist = {
   age_range: string | null
   years_of_experience: number | null
   lgbtq_friendly: boolean | null
+  remote_available: boolean
   session_price_45_min: number | null
   languages: string[] | null
   interests?: string[] | null
@@ -54,6 +56,7 @@ export default function TherapistProfilePage() {
     age_range: "",
     years_of_experience: 0,
     lgbtq_friendly: false,
+    remote_available: false,
     session_price_45_min: 0,
     languages: [],
     interests: [],
@@ -98,6 +101,7 @@ export default function TherapistProfilePage() {
           age_range: therapist.age_range ?? "",
           years_of_experience: therapist.years_of_experience ?? 0,
           lgbtq_friendly: therapist.lgbtq_friendly ?? false,
+          remote_available: therapist.remote_available ?? false,
           session_price_45_min: (therapist as any).session_price_45_min ?? 0,
           languages: therapist.languages ?? [],
           interests: therapist.interests ?? [],
@@ -215,6 +219,7 @@ export default function TherapistProfilePage() {
         age_range: form.age_range || null,
         years_of_experience: form.years_of_experience ?? null,
         lgbtq_friendly: !!form.lgbtq_friendly,
+        remote_available: !!form.remote_available,
         session_price_45_min: (form as any).session_price_45_min ?? null,
         languages: form.languages && form.languages.length > 0 ? form.languages : [],
         interests: form.interests && form.interests.length > 0 ? form.interests : [],
@@ -480,6 +485,17 @@ export default function TherapistProfilePage() {
               <div>
                 <Label htmlFor="languages">Languages (comma separated)</Label>
                 <Input id="languages" value={languagesText} onChange={handleLanguagesChange} placeholder="Arabic, English" />
+              </div>
+              <div className="md:col-span-2 flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex-1">
+                  <Label htmlFor="remote_available" className="text-base font-medium">I also work online</Label>
+                  <p className="text-sm text-gray-500 mt-1">Enable this if you offer remote/online therapy sessions</p>
+                </div>
+                <Switch
+                  id="remote_available"
+                  checked={form.remote_available}
+                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, remote_available: checked }))}
+                />
               </div>
             </div>
 

@@ -285,6 +285,7 @@ CREATE TABLE public.therapists (
   age_range text CHECK (age_range IS NULL OR (age_range = ANY (ARRAY['21-28'::text, '29-36'::text, '37-45'::text, '46-55'::text, '55+'::text]))),
   years_of_experience integer DEFAULT 0,
   lgbtq_friendly boolean DEFAULT false,
+  remote_available boolean DEFAULT false NOT NULL,
   session_price_60_min numeric,
   session_price_30_min numeric,
   status USER-DEFINED NOT NULL DEFAULT 'active'::therapist_status,
@@ -302,6 +303,7 @@ CREATE TABLE public.therapists (
   npi text,
   timezone text,
   session_price_45_min numeric,
+  commission_per_session numeric,
   CONSTRAINT therapists_pkey PRIMARY KEY (user_id),
   CONSTRAINT therapists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );

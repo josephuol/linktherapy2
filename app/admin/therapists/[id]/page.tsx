@@ -6,6 +6,8 @@ import { supabaseBrowser } from "@/lib/supabase-browser"
 import { ADMIN_COMMISSION_PER_SESSION } from "@/lib/utils"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import timeGridPlugin from "@fullcalendar/timegrid"
@@ -342,6 +344,20 @@ export default function AdminTherapistDetailPage() {
     setUpcomingSessions(futureSessions || [])
   }
 
+  const handleToggleRemote = async (checked: boolean) => {
+    if (!therapistId) return
+    try {
+      const { error } = await supabase
+        .from("therapists")
+        .update({ remote_available: checked })
+        .eq("user_id", therapistId)
+      if (error) throw error
+      setTherapist((prev: any) => prev ? { ...prev, remote_available: checked } : prev)
+    } catch (err) {
+      console.error("Failed to update remote_available:", err)
+    }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center text-[#056DBA]">Loading…</div>
 
   return (
@@ -464,6 +480,19 @@ export default function AdminTherapistDetailPage() {
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-500">Total Sessions</span>
                   <span className="font-medium text-gray-900">{therapist?.total_sessions ?? 0}</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <Label htmlFor="remote_available" className="text-sm font-medium text-gray-900">Works Online</Label>
+                    <p className="text-xs text-gray-500 mt-0.5">Offers remote/online therapy sessions</p>
+                  </div>
+                  <Switch
+                    id="remote_available"
+                    checked={therapist?.remote_available ?? false}
+                    onCheckedChange={handleToggleRemote}
+                  />
                 </div>
               </div>
             </CardContent>
