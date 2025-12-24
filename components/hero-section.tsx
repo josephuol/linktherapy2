@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Sparkles, Heart, Users, Award } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Heart, Users, Award } from "lucide-react"
+import { SmartSearch } from "@/components/smart-search"
+import type { Location, Specialty } from "@/types/search"
 
 export interface HeroStat {
   value: string
@@ -19,9 +19,15 @@ export interface HeroContent {
   stats?: HeroStat[]
 }
 
-export function HeroSection({ content, variant = "default" }: { content?: HeroContent, variant?: "default" | "twoColumnCompact" }) {
+interface HeroSectionProps {
+  content?: HeroContent
+  variant?: "default" | "twoColumnCompact"
+  locations?: Location[]
+  specialties?: Specialty[]
+}
+
+export function HeroSection({ content, variant = "default", locations = [], specialties = [] }: HeroSectionProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const [query, setQuery] = useState("")
 
   useEffect(() => {
     setIsVisible(true)
@@ -38,7 +44,7 @@ export function HeroSection({ content, variant = "default" }: { content?: HeroCo
   const icons = [Users, Heart, Award]
 
   return (
-    <section className={`${isCompact ? "pt-0 pb-0 min-h-[calc(100vh-4rem)]" : "min-h-screen pt-16 pb-16 md:pt-20 md:pb-24"} relative bg-gradient-to-br from-[#056DBA] via-[#2F86D2] to-[#8EC5FF] text-white overflow-hidden`}>
+    <section className={`${isCompact ? "pt-0 pb-0 min-h-[calc(100vh-4rem)]" : "min-h-screen pt-16 pb-16 md:pt-20 md:pb-24"} relative bg-gradient-to-br from-[#056DBA] via-[#2F86D2] to-[#8EC5FF] text-white overflow-x-hidden`}>
       {/* Animated background elements */}
       <div className="absolute inset-0">
         <div
@@ -59,7 +65,7 @@ export function HeroSection({ content, variant = "default" }: { content?: HeroCo
         />
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
+      <div className="container mx-auto px-4 relative">
         {isCompact ? (
           <>
             <div className="h-16 md:hidden" />
@@ -86,43 +92,13 @@ export function HeroSection({ content, variant = "default" }: { content?: HeroCo
               </div>
 
               {/* Search bar */}
-              <div className={`max-w-xl transition-all duration-1000 delay-500 ${isVisible ? "animate-scale-in" : "opacity-0"}`}>
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300" />
-                  <div className="relative flex gap-2 p-2 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/70 h-5 w-5" />
-                      <Input
-                        placeholder="Search by location, specialty, or therapist name..."
-                        className="pl-12 h-12 bg-white/10 border-white/20 text-white placeholder:text-white/70 rounded-xl focus:bg-white/20 transition-all duration-300"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const q = query.trim()
-                            window.location.href = q ? `/therapists?q=${encodeURIComponent(q)}` : "/therapists"
-                          }
-                        }}
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-12 px-6 bg-white text-[#056DBA] hover:bg-blue-50 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
-                      onClick={() => {
-                        const q = query.trim()
-                        window.location.href = q ? `/therapists?q=${encodeURIComponent(q)}` : "/therapists"
-                      }}
-                    >
-                      <Sparkles className="h-5 w-5 mr-2" />
-                      Search
-                    </Button>
-                  </div>
-                </div>
+              <div className={`max-w-xl transition-all duration-1000 delay-500 ${isVisible ? "animate-scale-in" : "opacity-0"} relative z-[9999]`}>
+                <SmartSearch locations={locations} specialties={specialties} variant="compact" />
               </div>
             </div>
 
             {/* Right column: compact stats card */}
-            <div className={`transition-all duration-1000 delay-700 ${isVisible ? "animate-slide-up" : "opacity-0"}`}>
+            <div className={`transition-all duration-1000 delay-700 ${isVisible ? "animate-slide-up" : "opacity-0"} relative z-0`}>
               <div className="bg-white/10 border border-white/20 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
                 <div className="grid grid-cols-1 gap-6">
                   {statsToRender.map((s, i) => {
@@ -175,44 +151,14 @@ export function HeroSection({ content, variant = "default" }: { content?: HeroCo
 
               {/* Search bar with enhanced styling */}
               <div
-                className={`max-w-3xl mx-auto mb-12 transition-all duration-1000 delay-500 ${isVisible ? "animate-scale-in" : "opacity-0"}`}
+                className={`max-w-3xl mx-auto mb-12 transition-all duration-1000 delay-500 ${isVisible ? "animate-scale-in" : "opacity-0"} relative z-[9999]`}
               >
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
-                  <div className="relative flex gap-3 p-2 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/70 h-5 w-5" />
-                      <Input
-                        placeholder="Search by location, specialty, or therapist name..."
-                        className="pl-12 h-14 bg-white/10 border-white/20 text-white placeholder:text-white/70 rounded-xl focus:bg-white/20 transition-all duration-300"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const q = query.trim()
-                            window.location.href = q ? `/therapists?q=${encodeURIComponent(q)}` : "/therapists"
-                          }
-                        }}
-                      />
-                    </div>
-                    <Button
-                      size="lg"
-                      className="h-14 px-8 bg-white text-[#056DBA] hover:bg-blue-50 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg"
-                      onClick={() => {
-                        const q = query.trim()
-                        window.location.href = q ? `/therapists?q=${encodeURIComponent(q)}` : "/therapists"
-                      }}
-                    >
-                      <Sparkles className="h-5 w-5 mr-2" />
-                      Search
-                    </Button>
-                  </div>
-                </div>
+                <SmartSearch locations={locations} specialties={specialties} variant="default" />
               </div>
 
               {/* Stats section */}
               <div
-                className={`grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto transition-all duration-1000 delay-700 ${isVisible ? "animate-slide-up" : "opacity-0"}`}
+                className={`grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto transition-all duration-1000 delay-700 ${isVisible ? "animate-slide-up" : "opacity-0"} relative z-0`}
               >
                 {statsToRender.map((s, i) => {
                   const Icon = (icons[i] || Users) as any

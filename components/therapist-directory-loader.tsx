@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase-server"
 import { TherapistDirectory } from "@/components/therapist-directory"
 import { HeroSection, type HeroContent } from "@/components/hero-section"
 import { MatchModal, type MatchConfig } from "@/components/match-modal"
+import type { Location, Specialty } from "@/types/search"
 
 export default async function TherapistDirectoryLoader({ showFilters = true, limit, showHero = true }: { showFilters?: boolean, limit?: number, showHero?: boolean } = {}) {
   const supabase = supabaseAdmin()
@@ -28,10 +29,32 @@ export default async function TherapistDirectoryLoader({ showFilters = true, lim
     .eq("key", "match.quiz")
     .maybeSingle()
 
+  // Fetch specialties for smart search
+  const { data: specialtiesData } = await supabase
+    .from("specialties")
+    .select("id, name, description")
+    .order("name")
+
   const interestsLabel = (labelsRow as any)?.content?.interestsLabel || "Interests"
 
   const hero: HeroContent | undefined = (heroRow as any)?.content || undefined
   const matchConfig: MatchConfig | undefined = (matchRow as any)?.content || undefined
+
+  // Use hardcoded cities that match the therapist directory filter
+  // These are the actual cities where therapists are located
+  const locations: Location[] = [
+    { id: "1", city: "Beirut", country: "Lebanon" },
+    { id: "2", city: "Zahle", country: "Lebanon" },
+    { id: "3", city: "Jounieh/Kaslik", country: "Lebanon" },
+    { id: "4", city: "Antelias", country: "Lebanon" },
+    { id: "5", city: "Aley", country: "Lebanon" },
+    { id: "6", city: "Tripoli", country: "Lebanon" },
+    { id: "7", city: "Jbeil", country: "Lebanon" },
+    { id: "8", city: "Dbayeh", country: "Lebanon" },
+    { id: "9", city: "Ajaltoun", country: "Lebanon" },
+  ]
+
+  const specialties = (specialtiesData as Specialty[]) || []
 
   const priceValues = Array.isArray(data) ? (data as any[])
     .map((t) => (t as any).session_price_45_min)
@@ -41,7 +64,7 @@ export default async function TherapistDirectoryLoader({ showFilters = true, lim
 
   return (
     <>
-      {showHero ? <HeroSection content={hero} variant="twoColumnCompact" /> : null}
+      {showHero ? <HeroSection content={hero} variant="twoColumnCompact" locations={locations} specialties={specialties} /> : null}
       <MatchModal config={matchConfig} minPrice={minPrice} maxPrice={maxPrice} />
       <TherapistDirectory initialTherapists={((data as any[]) || []).map(t => ({
         ...t,
