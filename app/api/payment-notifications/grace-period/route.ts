@@ -49,6 +49,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, skipped: true, reason: "Payment already completed" })
     }
 
+    // Skip if commission amount is 0 or less
+    if (payment.commission_amount <= 0) {
+      console.log("[Payment Notification] Commission amount is 0 or less, skipping grace period notification")
+      return NextResponse.json({ ok: true, skipped: true, reason: "zero_amount" })
+    }
+
     // Fetch therapist info
     const { data: therapist, error: therapistError } = await supabase
       .from("therapists")

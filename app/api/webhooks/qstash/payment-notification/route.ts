@@ -65,6 +65,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, skipped: true, reason: "payment_completed" })
     }
 
+    // Skip if commission amount is 0 or less - no payment needed
+    if (payment.commission_amount <= 0) {
+      console.log(`[Qstash Webhook] Payment ${paymentId} has zero commission, skipping notification`)
+      return NextResponse.json({ ok: true, skipped: true, reason: "zero_amount" })
+    }
+
     // Fetch therapist details
     const { data: therapist, error: therapistError } = await supabase
       .from("therapists")

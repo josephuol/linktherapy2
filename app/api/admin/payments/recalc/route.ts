@@ -19,8 +19,8 @@ function getPeriodBounds(dateIso: string) {
   // End exclusive for querying
   const endExclusive = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1, 0, 0, 0, 0))
 
-  // Payment due dates: 4th for first half, 19th for second half (of same month)
-  const dueDate = new Date(Date.UTC(year, month, day <= 15 ? 4 : 19, 0, 0, 0, 0))
+  // Payment due date: 30 days after the end of the payment period
+  const dueDate = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 30, 0, 0, 0, 0))
 
   return { start, end, endExclusive, dueDate }
 }
@@ -122,6 +122,9 @@ export async function POST(req: Request) {
         .eq("id", existing.id)
       if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
     } else {
+      // Determine status: if commission is 0 or less, mark as completed immediately
+      const paymentStatus = commission <= 0 ? "completed" : "pending"
+
       const { data: newPayment, error: insErr } = await supabase
         .from("therapist_payments")
         .insert({
@@ -131,14 +134,14 @@ export async function POST(req: Request) {
           total_sessions: totalSessions,
           commission_amount: commission,
           payment_due_date: dueDate.toISOString(),
-          status: "pending",
+          status: paymentStatus,
         })
         .select("id")
         .single()
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
 
-      // Schedule payment notifications for the new payment
-      if (newPayment?.id) {
+      // Schedule payment notifications ONLY if commission > 0
+      if (newPayment?.id && commission > 0) {
         try {
           const scheduleResult = await scheduleAllPaymentNotifications(
             newPayment.id,
