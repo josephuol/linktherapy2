@@ -290,7 +290,9 @@ export default function AdminPatientsPage() {
                             </TableCell>
                             <TableCell className="text-center">
                               {req.session_id ? (
-                                <CheckCircle className="h-4 w-4 text-green-600 mx-auto" title="Session created" />
+                                <span title="Session created" className="inline-block">
+                                  <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                                </span>
                               ) : (
                                 <span className="text-gray-400 text-xs">—</span>
                               )}
@@ -415,7 +417,9 @@ export default function AdminPatientsPage() {
                             </TableCell>
                             <TableCell className="text-center">
                               {req.session_id ? (
-                                <CheckCircle className="h-4 w-4 text-green-600 mx-auto" title="Session created" />
+                                <span title="Session created" className="inline-block">
+                                  <CheckCircle className="h-4 w-4 text-green-600 mx-auto" />
+                                </span>
                               ) : (
                                 <span className="text-gray-400 text-xs">—</span>
                               )}

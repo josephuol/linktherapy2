@@ -13,6 +13,7 @@ const nextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+    qualities: [75, 90, 100],
   },
   async headers() {
     return [
@@ -31,7 +32,7 @@ const nextConfig = {
       },
     ]
   },
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     // Enable importing SVGs as React components (SVGR)
     config.module.rules.push({
       test: /\.svg$/i,
@@ -43,6 +44,12 @@ const nextConfig = {
         },
       ],
     })
+
+    // Suppress Supabase realtime-js dynamic require warnings
+    config.ignoreWarnings = [
+      { module: /node_modules\/@supabase\/realtime-js/ },
+    ]
+
     return config
   },
 }
