@@ -1,0 +1,117 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - link "Logo" [ref=e5] [cursor=pointer]:
+        - /url: /admin
+        - img "Logo" [ref=e6]
+      - generic [ref=e7]:
+        - navigation [ref=e8]:
+          - generic [ref=e10]:
+            - heading "Menu" [level=2] [ref=e11]
+            - list [ref=e12]:
+              - listitem [ref=e13]:
+                - link "Dashboard" [ref=e14] [cursor=pointer]:
+                  - /url: /admin
+                  - img [ref=e16]
+                  - generic [ref=e18]: Dashboard
+              - listitem [ref=e19]:
+                - link "Calendar" [ref=e20] [cursor=pointer]:
+                  - /url: /admin/calendar
+                  - img [ref=e22]
+                  - generic [ref=e24]: Calendar
+              - listitem [ref=e25]:
+                - link "Patients" [ref=e26] [cursor=pointer]:
+                  - /url: /admin/patients
+                  - img [ref=e28]
+                  - generic [ref=e30]: Patients
+              - listitem [ref=e31]:
+                - link "Therapists" [ref=e32] [cursor=pointer]:
+                  - /url: /admin/therapists
+                  - img [ref=e34]
+                  - generic [ref=e36]: Therapists
+              - listitem [ref=e37]:
+                - link "Payments" [ref=e38] [cursor=pointer]:
+                  - /url: /admin/payments
+                  - img [ref=e40]
+                  - generic [ref=e42]: Payments
+              - listitem [ref=e43]:
+                - link "Create Therapists" [ref=e44] [cursor=pointer]:
+                  - /url: /admin/create-therapists
+                  - img [ref=e46]
+                  - generic [ref=e48]: Create Therapists
+              - listitem [ref=e49]:
+                - link "Requests" [ref=e50] [cursor=pointer]:
+                  - /url: /admin/requests
+                  - img [ref=e52]
+                  - generic [ref=e54]: Requests
+              - listitem [ref=e55]:
+                - link "Match Analytics" [ref=e56] [cursor=pointer]:
+                  - /url: /admin/analytics/match
+                  - img [ref=e58]
+                  - generic [ref=e60]: Match Analytics
+              - listitem [ref=e61]:
+                - link "Content" [ref=e62] [cursor=pointer]:
+                  - /url: /admin/content
+                  - img [ref=e64]
+                  - generic [ref=e66]: Content
+        - generic [ref=e67]:
+          - heading "LinkTherapy" [level=3] [ref=e68]
+          - paragraph [ref=e69]: Connecting you with the right therapist.
+        - button "Sign out" [ref=e71] [cursor=pointer]:
+          - img [ref=e72]
+          - generic [ref=e75]: Sign out
+    - main [ref=e76]:
+      - generic [ref=e78]: Loading…
+  - contentinfo [ref=e79]:
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - link "LinkTherapy" [ref=e87] [cursor=pointer]:
+            - /url: /
+            - img [ref=e89]
+            - generic [ref=e92]: LinkTherapy
+          - paragraph [ref=e93]: Connecting you with qualified mental health professionals to support your journey to wellness. Your mental health matters, and we're here to help you find the right support.
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - img [ref=e97]
+              - generic [ref=e99]: +961 79 107 042
+            - generic [ref=e100]:
+              - img [ref=e102]
+              - generic [ref=e105]: Available Nationwide
+        - generic [ref=e106]:
+          - heading "Quick Links" [level=3] [ref=e107]
+          - generic [ref=e108]:
+            - link "🏠 Find Therapists" [ref=e109] [cursor=pointer]:
+              - /url: /
+            - link "🎯 How to Choose" [ref=e110] [cursor=pointer]:
+              - /url: /how-to-choose
+            - link "🧠 Therapist Directory" [ref=e111] [cursor=pointer]:
+              - /url: /therapists
+            - link "👩‍⚕️ For Therapists" [ref=e112] [cursor=pointer]:
+              - /url: /for-therapists
+        - generic [ref=e113]:
+          - heading "Resources & Legal" [level=3] [ref=e114]
+          - generic [ref=e115]:
+            - link "📞 Contact Us" [ref=e116] [cursor=pointer]:
+              - /url: /contact
+            - link "🔒 Privacy Policy" [ref=e117] [cursor=pointer]:
+              - /url: /privacy
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]: "Follow us:"
+          - generic [ref=e122]:
+            - link "Instagram" [ref=e123] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e124]
+            - link "TikTok" [ref=e127] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e128]
+        - generic [ref=e130]:
+          - paragraph [ref=e131]: © 2025 LinkTherapy. All rights reserved.
+          - paragraph [ref=e132]: Made with ❤️ for mental health
+  - region "Notifications (F8)":
+    - list
+```

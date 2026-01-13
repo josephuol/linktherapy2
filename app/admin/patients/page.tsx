@@ -7,171 +7,115 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { CheckCircle } from "lucide-react"
 
-type Patient = {
-  id: string
-  full_name: string
-  email: string | null
-  phone: string | null
-  last_session_at: string | null
-  last_therapist_id: string | null
-  last_therapist_name: string | null
-  total_sessions: number
-}
-
-type PendingRequest = {
+type ContactRequestRow = {
   id: string
   client_name: string
   client_email: string
   client_phone: string | null
-  status: string
-  created_at: string
-  therapist_id: string | null
-  therapist_name: string | null
   message: string | null
+  status: 'new' | 'contacted' | 'accepted' | 'rejected' | 'scheduled' | 'closed'
+  rejection_reason: string | null
+  response_time_hours: number | null
+  responded_at: string | null
+  session_id: string | null
+  created_at: string
+  therapist: {
+    user_id: string
+    full_name: string
+  } | null
 }
 
 export default function AdminPatientsPage() {
   const supabase = supabaseBrowser()
   const router = useRouter()
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
+  const [allRequests, setAllRequests] = useState<ContactRequestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState("")
-  const [activeTab, setActiveTab] = useState("active")
+  const [activeTab, setActiveTab] = useState("all")
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.replace("/admin/login")
-        return
-      }
-      const { data: prof } = await supabase.from("profiles").select("role").eq("user_id", user.id).single()
-      if (prof?.role !== "admin") {
-        router.replace("/admin/login")
-        return
-      }
-
-      // Fetch sessions for Active Patients
-      const { data: sessions } = await supabase
-        .from("sessions")
-        .select("id, client_name, client_email, client_phone, session_date, therapist_id, therapist:therapists!sessions_therapist_id_fkey(user_id, full_name)")
-        .order("session_date", { ascending: false })
-
-      // Fetch contact_requests for Pending Requests
-      const { data: contactRequests } = await supabase
-        .from("contact_requests")
-        .select("id, client_name, client_email, client_phone, status, created_at, therapist_id, message, therapist:therapists!contact_requests_therapist_id_fkey(user_id, full_name)")
-        .in("status", ["new", "contacted"])
-        .order("created_at", { ascending: false })
-
-      // Build unique patients list with session counts, deduplicated by email (case-insensitive)
-      const byEmail = new Map<string, { patient: Patient; sessions: any[] }>()
-      const noEmailPatients: { patient: Patient; sessions: any[] }[] = []
-      
-      for (const s of (sessions as any[]) || []) {
-        const emailKey = (s.client_email || "").trim().toLowerCase()
-        const therapistName = (s.therapist && (s.therapist as any).full_name) || null
-        
-        if (emailKey) {
-          if (!byEmail.has(emailKey)) {
-            const p: Patient = {
-              id: emailKey,
-              full_name: s.client_name || "Unknown",
-              email: s.client_email || null,
-              phone: s.client_phone || null,
-              last_session_at: s.session_date || null,
-              last_therapist_id: (s.therapist && (s.therapist as any).user_id) || s.therapist_id || null,
-              last_therapist_name: therapistName,
-              total_sessions: 0,
-            }
-            byEmail.set(emailKey, { patient: p, sessions: [s] })
-          } else {
-            byEmail.get(emailKey)!.sessions.push(s)
-          }
-        } else {
-          const p: Patient = {
-            id: s.id,
-            full_name: s.client_name || "Unknown",
-            email: s.client_email || null,
-            phone: s.client_phone || null,
-            last_session_at: s.session_date || null,
-            last_therapist_id: (s.therapist && (s.therapist as any).user_id) || s.therapist_id || null,
-            last_therapist_name: therapistName,
-            total_sessions: 1,
-          }
-          noEmailPatients.push({ patient: p, sessions: [s] })
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.replace("/admin/login")
+          return
         }
-      }
-      
-      // Calculate total sessions for each patient
-      const aggregated = [...byEmail.values()].map(({ patient, sessions }) => {
-        patient.total_sessions = sessions.length
-        return patient
-      }).concat(noEmailPatients.map(({ patient }) => patient))
-      // Enrich with most recent phone from contact_requests (exact email match, prefer latest)
-      const emails = aggregated.map(p => p.email).filter((e): e is string => !!e)
-      if (emails.length > 0) {
-        const { data: crs } = await supabase
-          .from("contact_requests")
-          .select("client_email, client_phone, created_at")
-          .in("client_email", emails)
-          .order("created_at", { ascending: false })
-
-        const latestByEmail = new Map<string, string>()
-        for (const cr of (crs as any[]) || []) {
-          if (!cr.client_phone) continue
-          if (!latestByEmail.has(cr.client_email)) {
-            latestByEmail.set(cr.client_email, cr.client_phone)
-          }
+        const { data: prof } = await supabase.from("profiles").select("role").eq("user_id", user.id).single()
+        if (prof?.role !== "admin") {
+          router.replace("/admin/login")
+          return
         }
 
-        for (const p of aggregated) {
-          if (p.email && latestByEmail.has(p.email)) {
-            p.phone = latestByEmail.get(p.email) || p.phone
-          }
+        // Fetch contact requests and therapists separately, then join client-side
+        const [
+          { data: requests, error: requestsError },
+          { data: therapists, error: therapistsError }
+        ] = await Promise.all([
+          supabase
+            .from("contact_requests")
+            .select("id, client_name, client_email, client_phone, message, status, rejection_reason, response_time_hours, responded_at, session_id, created_at, therapist_id")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("therapists")
+            .select("user_id, full_name")
+        ])
+
+        if (requestsError) {
+          console.error("Error fetching contact requests:", requestsError)
         }
+        if (therapistsError) {
+          console.error("Error fetching therapists:", therapistsError)
+        }
+
+        // Create a map of therapist_id -> therapist for efficient lookup
+        const therapistMap = new Map<string, { user_id: string; full_name: string }>()
+        for (const t of (therapists as any[]) || []) {
+          therapistMap.set(t.user_id, t)
+        }
+
+        // Join contact requests with therapists
+        const requestsWithTherapist = ((requests as any[]) || []).map(req => ({
+          ...req,
+          therapist: req.therapist_id ? therapistMap.get(req.therapist_id) || null : null
+        }))
+
+        setAllRequests(requestsWithTherapist)
+      } catch (error) {
+        console.error("Error loading patients page:", error)
+      } finally {
+        setLoading(false)
       }
-      setPatients(aggregated)
-
-      // Process pending contact requests
-      const pending = (contactRequests as any[] || []).map((cr: any) => ({
-        id: cr.id,
-        client_name: cr.client_name || "Unknown",
-        client_email: cr.client_email || "",
-        client_phone: cr.client_phone || null,
-        status: cr.status || "new",
-        created_at: cr.created_at || "",
-        therapist_id: (cr.therapist && cr.therapist.user_id) || cr.therapist_id || null,
-        therapist_name: (cr.therapist && cr.therapist.full_name) || null,
-        message: cr.message || null,
-      }))
-      setPendingRequests(pending)
-
-      setLoading(false)
     }
     init()
   }, [])
 
-  const filteredPatients = useMemo(() => {
+  const pendingRequests = useMemo(() =>
+    allRequests.filter(r => r.status === 'new' || r.status === 'contacted'),
+    [allRequests]
+  )
+
+  const filteredRequests = useMemo(() => {
     const term = q.trim().toLowerCase()
-    if (!term) return patients
-    return patients.filter(p =>
-      p.full_name.toLowerCase().includes(term) ||
-      (p.email || "").toLowerCase().includes(term) ||
-      (p.phone || "").toLowerCase().includes(term)
+    if (!term) return allRequests
+    return allRequests.filter(r =>
+      r.client_name.toLowerCase().includes(term) ||
+      r.client_email.toLowerCase().includes(term) ||
+      (r.client_phone || "").toLowerCase().includes(term) ||
+      (r.therapist?.full_name || "").toLowerCase().includes(term)
     )
-  }, [q, patients])
+  }, [q, allRequests])
 
   const filteredPendingRequests = useMemo(() => {
     const term = q.trim().toLowerCase()
     if (!term) return pendingRequests
-    return pendingRequests.filter(pr =>
-      pr.client_name.toLowerCase().includes(term) ||
-      pr.client_email.toLowerCase().includes(term) ||
-      (pr.client_phone || "").toLowerCase().includes(term) ||
-      (pr.therapist_name || "").toLowerCase().includes(term)
+    return pendingRequests.filter(r =>
+      r.client_name.toLowerCase().includes(term) ||
+      r.client_email.toLowerCase().includes(term) ||
+      (r.client_phone || "").toLowerCase().includes(term) ||
+      (r.therapist?.full_name || "").toLowerCase().includes(term)
     )
   }, [q, pendingRequests])
 
@@ -179,10 +123,33 @@ export default function AdminPatientsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
-      new: { label: "New", className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-      contacted: { label: "Contacted", className: "bg-amber-100 text-amber-700 border-amber-200" },
+      new: {
+        label: "New",
+        className: "bg-blue-100 text-blue-800 border-blue-200"
+      },
+      contacted: {
+        label: "Contacted",
+        className: "bg-yellow-100 text-yellow-800 border-yellow-200"
+      },
+      accepted: {
+        label: "Accepted",
+        className: "bg-green-100 text-green-800 border-green-200"
+      },
+      rejected: {
+        label: "Rejected",
+        className: "bg-red-100 text-red-800 border-red-200"
+      },
+      scheduled: {
+        label: "Scheduled",
+        className: "bg-purple-100 text-purple-800 border-purple-200"
+      },
+      closed: {
+        label: "Closed",
+        className: "bg-gray-100 text-gray-800 border-gray-200"
+      }
     }
-    const config = statusConfig[status] || { label: status, className: "bg-gray-100 text-gray-700 border-gray-200" }
+
+    const config = statusConfig[status] || statusConfig.new
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${config.className}`}>
         {config.label}
@@ -202,7 +169,7 @@ export default function AdminPatientsPage() {
               <div className="flex gap-2 w-full sm:w-auto">
                 <Input
                   className="flex-1"
-                  placeholder={activeTab === "active" ? "Search patients..." : "Search pending requests..."}
+                  placeholder={activeTab === "all" ? "Search requests..." : "Search pending requests..."}
                   value={q}
                   onChange={e => setQ(e.target.value)}
                 />
@@ -212,53 +179,66 @@ export default function AdminPatientsPage() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-                <TabsTrigger value="active" className="text-sm">
-                  Active Patients <span className="ml-1.5 text-xs">({patients.length})</span>
+                <TabsTrigger value="all" className="text-sm">
+                  All Requests <span className="ml-1.5 text-xs">({allRequests.length})</span>
                 </TabsTrigger>
                 <TabsTrigger value="pending" className="text-sm">
                   Pending Requests <span className="ml-1.5 text-xs">({pendingRequests.length})</span>
                 </TabsTrigger>
               </TabsList>
 
-              {/* Active Patients Tab */}
-              <TabsContent value="active" className="space-y-4">
+              {/* All Requests Tab */}
+              <TabsContent value="all" className="space-y-4">
                 {/* Mobile Card View */}
                 <div className="lg:hidden space-y-3">
-                  {filteredPatients.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No active patients found</div>
+                  {filteredRequests.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No requests found</div>
                   ) : (
-                    filteredPatients.map(p => (
-                      <div key={p.id} className="border border-gray-200 rounded-lg p-4 bg-white space-y-2 shadow-sm hover:shadow-md transition-shadow">
+                    filteredRequests.map(req => (
+                      <div key={req.id} className="border border-gray-200 rounded-lg p-4 bg-white space-y-2 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
-                          <div className="font-semibold text-gray-900 text-base">{p.full_name}</div>
-                          <div className="text-sm font-medium bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                            {p.total_sessions} {p.total_sessions === 1 ? 'session' : 'sessions'}
-                          </div>
+                          <div className="font-semibold text-gray-900 text-base">{req.client_name}</div>
+                          {getStatusBadge(req.status)}
                         </div>
 
                         <div className="space-y-1 text-sm">
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500 font-medium w-20">Email:</span>
-                            <span className="text-gray-700">{p.email || "—"}</span>
+                            <span className="text-gray-700">{req.client_email}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500 font-medium w-20">Phone:</span>
-                            <span className="text-gray-700">{p.phone || "—"}</span>
+                            <span className="text-gray-700">{req.client_phone || "—"}</span>
                           </div>
-                          {p.last_session_at && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-gray-500 font-medium w-20">Last Visit:</span>
-                              <div className="flex-1">
-                                <div className="text-gray-700">{new Date(p.last_session_at).toLocaleDateString()}</div>
-                                {p.last_therapist_name && (
-                                  <button
-                                    className="text-[#056DBA] hover:underline text-xs"
-                                    onClick={() => router.push(`/admin/therapists/${p.last_therapist_id}`)}
-                                  >
-                                    with {p.last_therapist_name}
-                                  </button>
-                                )}
-                              </div>
+                          <div className="flex items-start gap-2">
+                            <span className="text-gray-500 font-medium w-20">Therapist:</span>
+                            <div className="flex-1">
+                              {req.therapist ? (
+                                <button
+                                  className="text-[#056DBA] hover:underline text-xs"
+                                  onClick={() => router.push(`/admin/therapists/${req.therapist!.user_id}`)}
+                                >
+                                  {req.therapist.full_name}
+                                </button>
+                              ) : (
+                                <span className="text-gray-700">—</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 font-medium w-20">Submitted:</span>
+                            <span className="text-gray-700 text-xs">{new Date(req.created_at).toLocaleDateString()}</span>
+                          </div>
+                          {req.session_id && (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-gray-700 text-xs">Session created</span>
+                            </div>
+                          )}
+                          {req.message && (
+                            <div className="pt-2 mt-2 border-t border-gray-100">
+                              <span className="text-gray-500 font-medium text-xs">Message:</span>
+                              <p className="text-gray-700 text-xs mt-1 line-clamp-2">{req.message}</p>
                             </div>
                           )}
                         </div>
@@ -269,43 +249,56 @@ export default function AdminPatientsPage() {
 
                 {/* Desktop Table View */}
                 <div className="hidden lg:block rounded-lg border border-gray-200 overflow-hidden bg-white shadow-sm">
-                  {filteredPatients.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No active patients found</div>
+                  {filteredRequests.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No requests found</div>
                   ) : (
                     <Table className="text-sm">
                       <TableHeader>
                         <TableRow className="bg-gray-50">
-                          <TableHead className="whitespace-nowrap font-semibold">Name</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold">Status</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold">Client Name</TableHead>
                           <TableHead className="whitespace-nowrap font-semibold">Email</TableHead>
                           <TableHead className="whitespace-nowrap font-semibold">Phone</TableHead>
-                          <TableHead className="whitespace-nowrap text-center font-semibold">Total Sessions</TableHead>
-                          <TableHead className="whitespace-nowrap font-semibold">Last Appointment</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold">Therapist</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold">Submitted</TableHead>
+                          <TableHead className="whitespace-nowrap text-center font-semibold">Session</TableHead>
+                          <TableHead className="whitespace-nowrap font-semibold">Message</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredPatients.map(p => (
-                          <TableRow key={p.id} className="hover:bg-gray-50/50 transition-colors">
-                            <TableCell className="font-medium whitespace-nowrap">{p.full_name}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">{p.email || "—"}</TableCell>
-                            <TableCell className="whitespace-nowrap">{p.phone || "—"}</TableCell>
-                            <TableCell className="text-center">
-                              <span className="inline-flex items-center justify-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
-                                {p.total_sessions}
-                              </span>
+                        {filteredRequests.map(req => (
+                          <TableRow key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                            <TableCell>{getStatusBadge(req.status)}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">{req.client_name}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{req.client_email}</TableCell>
+                            <TableCell className="whitespace-nowrap">{req.client_phone || "—"}</TableCell>
+                            <TableCell>
+                              {req.therapist ? (
+                                <button
+                                  className="text-[#056DBA] hover:underline text-xs"
+                                  onClick={() => router.push(`/admin/therapists/${req.therapist!.user_id}`)}
+                                >
+                                  {req.therapist.full_name}
+                                </button>
+                              ) : (
+                                "—"
+                              )}
                             </TableCell>
                             <TableCell>
-                              {p.last_session_at ? (
-                                <div>
-                                  <div className="text-xs">{new Date(p.last_session_at).toLocaleDateString()}</div>
-                                  <div className="text-xs text-gray-500">{new Date(p.last_session_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                  {p.last_therapist_id && p.last_therapist_name ? (
-                                    <button
-                                      className="text-[#056DBA] hover:underline text-xs mt-1"
-                                      onClick={() => router.push(`/admin/therapists/${p.last_therapist_id}`)}
-                                    >
-                                      with {p.last_therapist_name}
-                                    </button>
-                                  ) : null}
+                              <div className="text-xs">{new Date(req.created_at).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {req.session_id ? (
+                                <CheckCircle className="h-4 w-4 text-green-600 mx-auto" title="Session created" />
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[250px]">
+                              {req.message ? (
+                                <div className="text-xs text-gray-700 line-clamp-2" title={req.message}>
+                                  {req.message}
                                 </div>
                               ) : (
                                 "—"
@@ -326,45 +319,51 @@ export default function AdminPatientsPage() {
                   {filteredPendingRequests.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">No pending requests found</div>
                   ) : (
-                    filteredPendingRequests.map(pr => (
-                      <div key={pr.id} className="border border-gray-200 rounded-lg p-4 bg-white space-y-2 shadow-sm hover:shadow-md transition-shadow">
+                    filteredPendingRequests.map(req => (
+                      <div key={req.id} className="border border-gray-200 rounded-lg p-4 bg-white space-y-2 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
-                          <div className="font-semibold text-gray-900 text-base">{pr.client_name}</div>
-                          {getStatusBadge(pr.status)}
+                          <div className="font-semibold text-gray-900 text-base">{req.client_name}</div>
+                          {getStatusBadge(req.status)}
                         </div>
 
                         <div className="space-y-1 text-sm">
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500 font-medium w-20">Email:</span>
-                            <span className="text-gray-700">{pr.client_email}</span>
+                            <span className="text-gray-700">{req.client_email}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500 font-medium w-20">Phone:</span>
-                            <span className="text-gray-700">{pr.client_phone || "—"}</span>
+                            <span className="text-gray-700">{req.client_phone || "—"}</span>
                           </div>
                           <div className="flex items-start gap-2">
                             <span className="text-gray-500 font-medium w-20">Therapist:</span>
                             <div className="flex-1">
-                              {pr.therapist_id && pr.therapist_name ? (
+                              {req.therapist ? (
                                 <button
                                   className="text-[#056DBA] hover:underline text-xs"
-                                  onClick={() => router.push(`/admin/therapists/${pr.therapist_id}`)}
+                                  onClick={() => router.push(`/admin/therapists/${req.therapist!.user_id}`)}
                                 >
-                                  {pr.therapist_name}
+                                  {req.therapist.full_name}
                                 </button>
                               ) : (
                                 <span className="text-gray-700">—</span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-center gap-2">
                             <span className="text-gray-500 font-medium w-20">Submitted:</span>
-                            <span className="text-gray-700 text-xs">{new Date(pr.created_at).toLocaleDateString()}</span>
+                            <span className="text-gray-700 text-xs">{new Date(req.created_at).toLocaleDateString()}</span>
                           </div>
-                          {pr.message && (
+                          {req.session_id && (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <span className="text-gray-700 text-xs">Session created</span>
+                            </div>
+                          )}
+                          {req.message && (
                             <div className="pt-2 mt-2 border-t border-gray-100">
                               <span className="text-gray-500 font-medium text-xs">Message:</span>
-                              <p className="text-gray-700 text-xs mt-1 line-clamp-2">{pr.message}</p>
+                              <p className="text-gray-700 text-xs mt-1 line-clamp-2">{req.message}</p>
                             </div>
                           )}
                         </div>
@@ -387,36 +386,44 @@ export default function AdminPatientsPage() {
                           <TableHead className="whitespace-nowrap font-semibold">Phone</TableHead>
                           <TableHead className="whitespace-nowrap font-semibold">Therapist</TableHead>
                           <TableHead className="whitespace-nowrap font-semibold">Submitted</TableHead>
+                          <TableHead className="whitespace-nowrap text-center font-semibold">Session</TableHead>
                           <TableHead className="whitespace-nowrap font-semibold">Message</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredPendingRequests.map(pr => (
-                          <TableRow key={pr.id} className="hover:bg-gray-50/50 transition-colors">
-                            <TableCell>{getStatusBadge(pr.status)}</TableCell>
-                            <TableCell className="font-medium whitespace-nowrap">{pr.client_name}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">{pr.client_email}</TableCell>
-                            <TableCell className="whitespace-nowrap">{pr.client_phone || "—"}</TableCell>
+                        {filteredPendingRequests.map(req => (
+                          <TableRow key={req.id} className="hover:bg-gray-50/50 transition-colors">
+                            <TableCell>{getStatusBadge(req.status)}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">{req.client_name}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{req.client_email}</TableCell>
+                            <TableCell className="whitespace-nowrap">{req.client_phone || "—"}</TableCell>
                             <TableCell>
-                              {pr.therapist_id && pr.therapist_name ? (
+                              {req.therapist ? (
                                 <button
                                   className="text-[#056DBA] hover:underline text-xs"
-                                  onClick={() => router.push(`/admin/therapists/${pr.therapist_id}`)}
+                                  onClick={() => router.push(`/admin/therapists/${req.therapist!.user_id}`)}
                                 >
-                                  {pr.therapist_name}
+                                  {req.therapist.full_name}
                                 </button>
                               ) : (
                                 "—"
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="text-xs">{new Date(pr.created_at).toLocaleDateString()}</div>
-                              <div className="text-xs text-gray-500">{new Date(pr.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                              <div className="text-xs">{new Date(req.created_at).toLocaleDateString()}</div>
+                              <div className="text-xs text-gray-500">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {req.session_id ? (
+                                <CheckCircle className="h-4 w-4 text-green-600 mx-auto" title="Session created" />
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
                             </TableCell>
                             <TableCell className="max-w-[250px]">
-                              {pr.message ? (
-                                <div className="text-xs text-gray-700 line-clamp-2" title={pr.message}>
-                                  {pr.message}
+                              {req.message ? (
+                                <div className="text-xs text-gray-700 line-clamp-2" title={req.message}>
+                                  {req.message}
                                 </div>
                               ) : (
                                 "—"
@@ -436,5 +443,3 @@ export default function AdminPatientsPage() {
     </div>
   )
 }
-
-

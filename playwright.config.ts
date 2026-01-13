@@ -25,10 +25,16 @@ export default defineConfig({
     ['list']
   ],
 
+  /* Global setup for authentication */
+  globalSetup: require.resolve('./tests/e2e/global-setup'),
+
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')` */
     baseURL: 'http://localhost:3000',
+
+    /* Use stored authentication state */
+    storageState: 'tests/e2e/.auth/admin.json',
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -44,7 +50,11 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        /* Reuse the authentication state */
+        storageState: 'tests/e2e/.auth/admin.json',
+      },
     },
   ],
 
